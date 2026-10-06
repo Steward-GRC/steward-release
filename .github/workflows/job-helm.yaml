@@ -44,18 +44,30 @@ jobs:
         if: hashFiles('Chart.yaml') != ''
         run: helm lint . -f values.yaml
       - name: helm dependency build
+        id: deps
         if: hashFiles('Chart.yaml') != ''
-        # Known gap, reported: Bugs5382/helm-postgres-ha has no published chart
-        # yet, so this step is expected to fail until it ships. See
-        # docs/install.md.
+        # Bugs5382/helm-postgres-ha has no published chart yet, so this step
+        # fails until it ships; the fallback below keeps every service
+        # rendered and validated in the bring-your-own Postgres shape.
         continue-on-error: true
         run: helm dependency build .
+      - name: Prepare the umbrella without postgres-ha (fallback)
+        if: hashFiles('Chart.yaml') != '' && steps.deps.outcome == 'failure'
+        run: |
+          set -euo pipefail
+          echo "::warning::helm-postgres-ha is not published; rendering the bring-your-own Postgres shape only"
+          mkdir -p /tmp/umbrella
+          cp -r Chart.yaml values*.yaml charts /tmp/umbrella/
+          yq -i 'del(.dependencies[] | select(.name == "postgres-ha"))' /tmp/umbrella/Chart.yaml
+          helm dependency build /tmp/umbrella
+          echo "CHART_DIR=/tmp/umbrella" >> "$GITHUB_ENV"
+          echo "EXTRA_VALUES=-f /tmp/umbrella/values-byo-postgres-example.yaml" >> "$GITHUB_ENV"
       - name: helm template (defaults)
         if: hashFiles('Chart.yaml') != ''
-        run: helm template steward . -f values.yaml --namespace steward > /tmp/rendered-default.yaml
+        run: helm template steward "${CHART_DIR:-.}" -f values.yaml ${EXTRA_VALUES:-} --namespace steward > /tmp/rendered-default.yaml
       - name: helm template (high availability example)
         if: hashFiles('values-ha-example.yaml') != ''
-        run: helm template steward . -f values.yaml -f values-ha-example.yaml --namespace steward > /tmp/rendered-ha.yaml
+        run: helm template steward "${CHART_DIR:-.}" -f values.yaml -f values-ha-example.yaml ${EXTRA_VALUES:-} --namespace steward > /tmp/rendered-ha.yaml
       - name: kubeconform (defaults)
         if: hashFiles('Chart.yaml') != ''
         run: kubeconform -strict -summary -kubernetes-version 1.29.0 /tmp/rendered-default.yaml
