@@ -21,64 +21,12 @@ permissions:
 concurrency:
   group: checks-${{ github.ref }}
   cancel-in-progress: true
-env:
-  HELM_VERSION: v3.16.3
-  HELM_SHA256: f5355c79190951eed23c5432a3b920e071f4c00a64f75e077de0dd4cb7b294ea
-  KUBECONFORM_VERSION: v0.6.7
-  KUBECONFORM_SHA256: 95f14e87aa28c09d5941f11bd024c1d02fdc0303ccaa23f61cef67bc92619d73
 jobs:
   checks:
-    name: Build & Test
     if: (github.event_name == 'pull_request' || github.event_name == 'merge_group') && github.event.pull_request.draft != true
-    runs-on: ubuntu-24.04
-    timeout-minutes: 15
     permissions:
       contents: read
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Install Helm (pinned, checksum-checked)
-        run: |
-          set -euo pipefail
-          curl -fsSL -o helm.tar.gz "https://get.helm.sh/helm-${HELM_VERSION}-linux-amd64.tar.gz"
-          echo "${HELM_SHA256}  helm.tar.gz" | sha256sum -c -
-          tar -xzf helm.tar.gz
-          sudo install linux-amd64/helm /usr/local/bin/helm
-          helm version
-      - name: Install kubeconform (pinned, checksum-checked)
-        run: |
-          set -euo pipefail
-          curl -fsSL -o kubeconform.tar.gz "https://github.com/yannh/kubeconform/releases/download/${KUBECONFORM_VERSION}/kubeconform-linux-amd64.tar.gz"
-          echo "${KUBECONFORM_SHA256}  kubeconform.tar.gz" | sha256sum -c -
-          tar -xzf kubeconform.tar.gz kubeconform
-          sudo install kubeconform /usr/local/bin/kubeconform
-          kubeconform -v
-      - name: helm lint (the reusable service chart)
-        run: helm lint charts/_service
-      - name: helm lint (umbrella)
-        # The umbrella (Chart.yaml at the repo root) lands in a later PR of
-        # the port; a PR that carries only the reusable chart has none yet.
-        if: hashFiles('Chart.yaml') != ''
-        run: helm lint . -f values.yaml
-      - name: helm dependency build
-        if: hashFiles('Chart.yaml') != ''
-        # Known gap, reported: Bugs5382/helm-postgres-ha has no published chart
-        # yet, so this step is expected to fail until it ships. See
-        # docs/install.md.
-        continue-on-error: true
-        run: helm dependency build .
-      - name: helm template (defaults)
-        if: hashFiles('Chart.yaml') != ''
-        run: helm template steward . -f values.yaml --namespace steward > /tmp/rendered-default.yaml
-      - name: helm template (high availability example)
-        if: hashFiles('values-ha-example.yaml') != ''
-        run: helm template steward . -f values.yaml -f values-ha-example.yaml --namespace steward > /tmp/rendered-ha.yaml
-      - name: kubeconform (defaults)
-        if: hashFiles('Chart.yaml') != ''
-        run: kubeconform -strict -summary -kubernetes-version 1.29.0 /tmp/rendered-default.yaml
-      - name: kubeconform (high availability example)
-        if: hashFiles('values-ha-example.yaml') != ''
-        run: kubeconform -strict -summary -kubernetes-version 1.29.0 /tmp/rendered-ha.yaml
+    uses: ./.github/workflows/job-helm.yaml
   dco:
     if: (github.event_name == 'pull_request' || github.event_name == 'merge_group') && github.event.pull_request.draft != true
     uses: Steward-GRC/.github/.github/workflows/dco.yml@main
