@@ -1,0 +1,114 @@
+# Defaults for one alias of this chart. Every value here is overridden per
+# service alias in the umbrella chart's values.yaml; nothing here is a usable
+# install on its own (there is no default image repository or tag).
+
+aliasName: ""
+
+image:
+  repository: ""
+  tag: ""
+  pullPolicy: IfNotPresent
+
+replicaCount: 1
+podAntiAffinity: false
+
+port:
+  name: grpc
+  number: 9090
+probePort: 8081
+
+resources: {}
+
+podDisruptionBudget:
+  enabled: false
+  minAvailable: 1
+
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 5
+  targetCPUUtilizationPercentage: 80
+
+service:
+  enabled: true
+
+serviceAccount:
+  create: true
+  name: ""
+  annotations: {}
+
+# Extra literal env vars: [{name: FOO, value: "bar"}] or
+# [{name: FOO, valueFrom: {secretKeyRef: {name: foo, key: bar}}}].
+env: []
+
+# Set by the umbrella for every service that owns a database. The chart
+# assembles DATABASE_HOST/PORT/NAME/USER/SSLMODE as plain values and reads
+# DATABASE_PASSWORD from an existing Secret (helm-postgres-ha's per-role
+# password Secret, "<cluster>-role-<role>", or the operator's own Secret for
+# a bring-your-own instance). `external.enabled` switches to that bring-your-own
+# instance; the chart never ships a plaintext default for either path.
+postgres:
+  enabled: false
+  host: ""
+  port: 5432
+  database: ""
+  user: app
+  sslmode: require
+  passwordSecretName: ""
+  passwordSecretKey: password
+  external:
+    enabled: false
+    host: ""
+    port: 5432
+    database: ""
+    user: ""
+    sslmode: require
+    passwordSecretName: ""
+    passwordSecretKey: password
+
+# Service-to-service authentication: a caller presents a projected
+# service-account token; a callee verifies it against the cluster's OIDC
+# JWKS and checks the caller against its own allow-list.
+# `allowedServiceAccounts` holds bare caller names ("gateway", "core", ...);
+# the chart expands each to "<namespace>/steward-<name>". See
+# docs/service-to-service-auth.md.
+workloadAuth:
+  caller: false
+  callee: false
+  audience: steward
+  tokenPath: /var/run/secrets/steward/token
+  authMode: enabled
+  oidc:
+    # Defaults assume the cluster's own API server is the OIDC issuer
+    # (the Kubernetes built-in service-account issuer discovery most
+    # clusters already run). Override for a cluster with a different
+    # --service-account-issuer.
+    issuer: https://kubernetes.default.svc.cluster.local
+    jwksUrl: https://kubernetes.default.svc.cluster.local/openid/v1/jwks
+    # Mounted into every pod automatically; not a Secret this chart manages.
+    caFile: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+    # Empty means "use workloadAuth.tokenPath" (set in the deployment
+    # template): the common case where this service is also a caller, so its
+    # own outbound token doubles as the bearer file.
+    bearerFile: ""
+  allowedServiceAccounts: []
+
+# The steward-authz Rego policy bundle, for the services that evaluate access
+# in-process (core, gateway, ai). An init container copies the bundle image's
+# `/bundle` into a shared, read-only `emptyDir`; the main container reads it
+# from `mountPath` via `OPA_BUNDLE_PATH`. steward-authz has no server of its
+# own, so this is the only chart wiring it needs.
+opaBundle:
+  enabled: false
+  image:
+    repository: ""
+    tag: ""
+    pullPolicy: IfNotPresent
+  mountPath: /etc/steward/authz-bundle
+
+networkPolicy:
+  enabled: true
+
+logging:
+  level: error
+  format: json
