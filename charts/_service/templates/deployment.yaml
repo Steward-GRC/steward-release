@@ -126,7 +126,7 @@ spec:
             - name: WORKLOAD_OIDC_CA_FILE
               value: {{ .Values.workloadAuth.oidc.caFile | quote }}
             - name: WORKLOAD_OIDC_BEARER_FILE
-              value: {{ .Values.workloadAuth.oidc.bearerFile | default .Values.workloadAuth.tokenPath | quote }}
+              value: {{ .Values.workloadAuth.oidc.bearerFile | quote }}
             - name: WORKLOAD_ALLOWED_SERVICEACCOUNTS
               value: {{ include "service-chart.allowedServiceAccounts" . | required (printf "%s: workloadAuth.allowedServiceAccounts is required for an enabled callee" (include "service-chart.fullname" .)) | quote }}
             {{- end }}
@@ -152,10 +152,12 @@ spec:
           resources:
             {{- toYaml . | nindent 12 }}
           {{- end }}
-          {{- if or .Values.workloadAuth.caller .Values.opaBundle.enabled }}
+          {{- $jwksCreds := include "service-chart.jwksCredentials" . }}
+          {{- $identity := or .Values.workloadAuth.caller $jwksCreds }}
+          {{- if or $identity .Values.opaBundle.enabled }}
           volumeMounts:
-            {{- if .Values.workloadAuth.caller }}
-            - name: workload-token
+            {{- if $identity }}
+            - name: workload-identity
               mountPath: /var/run/secrets/steward
               readOnly: true
             {{- end }}
@@ -180,16 +182,36 @@ spec:
             - name: opa-bundle
               mountPath: {{ .Values.opaBundle.mountPath }}
       {{- end }}
-      {{- if or .Values.workloadAuth.caller .Values.opaBundle.enabled }}
+      {{- $jwksCreds := include "service-chart.jwksCredentials" . }}
+      {{- $identity := or .Values.workloadAuth.caller $jwksCreds }}
+      {{- if or $identity .Values.opaBundle.enabled }}
       volumes:
-        {{- if .Values.workloadAuth.caller }}
-        - name: workload-token
+        {{- if $identity }}
+        - name: workload-identity
           projected:
             sources:
+              {{- if .Values.workloadAuth.caller }}
+              # The caller token, presented to other Steward services.
               - serviceAccountToken:
                   path: token
                   audience: {{ .Values.workloadAuth.audience }}
                   expirationSeconds: 3600
+              {{- end }}
+              {{- if $jwksCreds }}
+              # The JWKS fetch credentials: the API server rejects the
+              # steward-audience token, so a second token with no audience
+              # (the API server's own default) authenticates the fetch, and
+              # the namespace's kube-root-ca.crt verifies the API server
+              # without automounting the service-account token.
+              - serviceAccountToken:
+                  path: jwks/token
+                  expirationSeconds: 3600
+              - configMap:
+                  name: kube-root-ca.crt
+                  items:
+                    - key: ca.crt
+                      path: kube-ca/ca.crt
+              {{- end }}
         {{- end }}
         {{- if .Values.opaBundle.enabled }}
         - name: opa-bundle

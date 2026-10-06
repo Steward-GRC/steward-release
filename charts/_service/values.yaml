@@ -110,12 +110,15 @@ workloadAuth:
     # --service-account-issuer.
     issuer: https://kubernetes.default.svc.cluster.local
     jwksUrl: https://kubernetes.default.svc.cluster.local/openid/v1/jwks
-    # Mounted into every pod automatically; not a Secret this chart manages.
-    caFile: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
-    # Empty means "use workloadAuth.tokenPath" (set in the deployment
-    # template): the common case where this service is also a caller, so its
-    # own outbound token doubles as the bearer file.
-    bearerFile: ""
+    # The JWKS fetch credentials the chart mounts for every enabled callee:
+    # the namespace's kube-root-ca.crt ConfigMap (the API server's CA), and
+    # a second projected service-account token with the API server's default
+    # audience. The caller token (audience `steward`) can't be used here: the
+    # API server rejects it. Neither is a Secret this chart manages, and the
+    # service-account token automount stays off. Point both at your own
+    # files for an issuer outside the cluster.
+    caFile: /var/run/secrets/steward/kube-ca/ca.crt
+    bearerFile: /var/run/secrets/steward/jwks/token
   allowedServiceAccounts: []
 
 # The steward-authz Rego policy bundle, for the services that evaluate access

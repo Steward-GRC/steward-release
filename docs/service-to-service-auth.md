@@ -17,6 +17,23 @@ callee. Nothing here is mTLS-only trust or a shared secret.
    run only. A service running with it disabled logs a warning at start-up and reports degraded on
    its readiness check.
 
+## The JWKS fetch credentials
+
+The API server serves `/openid/v1/jwks` to any service account (the
+`system:service-account-issuer-discovery` binding), but only for a token whose audience it
+accepts; it rejects the caller token's `steward` audience with a 401. So for every enabled callee
+the chart projects, into the same read-only volume at `/var/run/secrets/steward`:
+
+| File | Source | Used for |
+|---|---|---|
+| `token` | service-account token, audience `steward` (callers only) | calls to other Steward services |
+| `jwks/token` | service-account token, no audience (the API server's default) | the discovery and JWKS fetch |
+| `kube-ca/ca.crt` | the namespace's `kube-root-ca.crt` ConfigMap | verifying the API server's TLS |
+
+`automountServiceAccountToken` stays off, so no pod gets the general-purpose token. For an issuer
+outside the cluster, set `<service>.workloadAuth.oidc.issuer`/`jwksUrl` and point
+`oidc.caFile`/`oidc.bearerFile` at your own files.
+
 ## Which services verify callers today
 
 Workload auth is implemented in **core, delivery, reporting, collab and ai** (callees) and in
@@ -36,8 +53,8 @@ authentication. workflow and obligations are not wired as callers either, for th
 | `WORKLOAD_TOKEN_FILE` | caller | where the projected token lives |
 | `WORKLOAD_AUDIENCE` | callee | the audience the token must carry (`steward`) |
 | `WORKLOAD_OIDC_ISSUER`, `WORKLOAD_OIDC_JWKS_URL` | callee | where to verify the token; default to the cluster's own API server |
-| `WORKLOAD_OIDC_CA_FILE` | callee | the CA for that endpoint; defaults to the CA every pod already mounts |
-| `WORKLOAD_OIDC_BEARER_FILE` | callee | a bearer token the callee itself presents while verifying, when it needs one; defaults to its own caller token path |
+| `WORKLOAD_OIDC_CA_FILE` | callee | the CA for that endpoint: `/var/run/secrets/steward/kube-ca/ca.crt`, the namespace's `kube-root-ca.crt` ConfigMap |
+| `WORKLOAD_OIDC_BEARER_FILE` | callee | the token the callee presents on the discovery and JWKS fetch: `/var/run/secrets/steward/jwks/token`, a second projected token with the API server's default audience |
 | `WORKLOAD_ALLOWED_SERVICEACCOUNTS` | callee | the caller list below, as `<namespace>/steward-<caller>` |
 | `WORKLOAD_AUTH` | callee | left unset (enabled, `authMode: enabled`), or `disabled` alone with none of the rows above (`authMode: disabled`) |
 

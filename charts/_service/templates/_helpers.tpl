@@ -110,3 +110,13 @@ runs only). The services accept nothing else.
 {{- end -}}
 {{- $m -}}
 {{- end -}}
+
+{{/*
+"true" for an enabled callee: it fetches the issuer's JWKS and gets the
+second (default-audience) token and the cluster CA mounted for that.
+*/}}
+{{- define "service-chart.jwksCredentials" -}}
+{{- if and .Values.workloadAuth.callee (eq (include "service-chart.workloadAuthMode" .) "enabled") -}}
+true
+{{- end -}}
+{{- end -}}
