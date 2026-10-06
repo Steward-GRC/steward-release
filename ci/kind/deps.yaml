@@ -1,0 +1,219 @@
+# The kind install test's bring-your-own dependencies: the smallest shape
+# that lets every service start (one replica each, ephemeral storage,
+# dev-only settings). Credentials come from the Secrets run.sh generates.
+# Images are pinned by digest.
+apiVersion: v1
+kind: Service
+metadata:
+  name: steward-postgres
+spec:
+  selector: {app: steward-postgres}
+  ports:
+    - {name: postgres, port: 5432}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: steward-postgres
+spec:
+  selector:
+    matchLabels: {app: steward-postgres}
+  template:
+    metadata:
+      labels: {app: steward-postgres}
+    spec:
+      containers:
+        - name: postgres
+          # pgvector: ai's migrations need the vector extension.
+          image: docker.io/pgvector/pgvector:0.8.7-pg18-bookworm@sha256:2358fcba361ed2233a5ed81b5fe4ca779ccb304120ce531a3bf51c0ed7e2bc11
+          env:
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef: {name: steward-ci-deps, key: postgres-password}
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+          ports:
+            - containerPort: 5432
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", "postgres"]
+            periodSeconds: 3
+          volumeMounts:
+            - {name: data, mountPath: /var/lib/postgresql/data}
+            - {name: init, mountPath: /docker-entrypoint-initdb.d, readOnly: true}
+      volumes:
+        - name: data
+          emptyDir: {}
+        - name: init
+          secret:
+            secretName: steward-ci-postgres-init
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: steward-rabbitmq
+spec:
+  selector: {app: steward-rabbitmq}
+  ports:
+    - {name: amqp, port: 5672}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: steward-rabbitmq
+spec:
+  selector:
+    matchLabels: {app: steward-rabbitmq}
+  template:
+    metadata:
+      labels: {app: steward-rabbitmq}
+    spec:
+      containers:
+        - name: rabbitmq
+          image: docker.io/library/rabbitmq:4.1.8-alpine@sha256:33335c41151058d46086c04859e6b91bfdf97f9575efd3ca9709a20b5cd45aee
+          env:
+            - name: RABBITMQ_DEFAULT_USER
+              value: steward
+            - name: RABBITMQ_DEFAULT_PASS
+              valueFrom:
+                secretKeyRef: {name: steward-ci-deps, key: rabbitmq-password}
+          ports:
+            - containerPort: 5672
+          readinessProbe:
+            exec:
+              command: ["rabbitmq-diagnostics", "-q", "check_port_connectivity"]
+            periodSeconds: 10
+            timeoutSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: steward-valkey
+spec:
+  selector: {app: steward-valkey}
+  ports:
+    - {name: valkey, port: 6379}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: steward-valkey
+spec:
+  selector:
+    matchLabels: {app: steward-valkey}
+  template:
+    metadata:
+      labels: {app: steward-valkey}
+    spec:
+      containers:
+        - name: valkey
+          image: docker.io/valkey/valkey:8.1.10-alpine@sha256:081c2f5cb575efc901aa80ff9cdbd1ec6a301682fd35e1ebb4b0990a4a4a8507
+          args: ["--save", "", "--appendonly", "no"]
+          ports:
+            - containerPort: 6379
+          readinessProbe:
+            exec:
+              command: ["valkey-cli", "ping"]
+            periodSeconds: 3
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: steward-kratos
+data:
+  kratos.yml: |
+    dsn: memory
+    serve:
+      public:
+        base_url: http://steward-kratos:4433/
+      admin:
+        base_url: http://steward-kratos:4434/
+    selfservice:
+      default_browser_return_url: http://localhost:8080/
+      methods:
+        password:
+          enabled: true
+      flows:
+        login:
+          ui_url: http://localhost:8080/login
+        registration:
+          enabled: false
+          ui_url: http://localhost:8080/registration
+        error:
+          ui_url: http://localhost:8080/error
+    identity:
+      default_schema_id: default
+      schemas:
+        - id: default
+          url: file:///etc/kratos/identity.schema.json
+    courier:
+      smtp:
+        connection_uri: smtp://localhost:1025/?disable_starttls=true
+  identity.schema.json: |
+    {
+      "$id": "https://example.org/steward-ci.schema.json",
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Person",
+      "type": "object",
+      "properties": {
+        "traits": {
+          "type": "object",
+          "properties": {
+            "email": {
+              "type": "string",
+              "format": "email",
+              "ory.sh/kratos": {
+                "credentials": {"password": {"identifier": true}}
+              }
+            }
+          },
+          "required": ["email"]
+        }
+      }
+    }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: steward-kratos
+spec:
+  selector: {app: steward-kratos}
+  ports:
+    - {name: public, port: 4433}
+    - {name: admin, port: 4434}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: steward-kratos
+spec:
+  selector:
+    matchLabels: {app: steward-kratos}
+  template:
+    metadata:
+      labels: {app: steward-kratos}
+    spec:
+      containers:
+        - name: kratos
+          image: docker.io/oryd/kratos:v1.3.1@sha256:fe2428f103a6240c064b6ea77d3088610865c55fcebccb30355857eccdc25b4b
+          # In-memory SQLite migrates itself on start-up.
+          args: ["serve", "--dev", "-c", "/etc/kratos/kratos.yml"]
+          env:
+            - name: SECRETS_COOKIE
+              valueFrom:
+                secretKeyRef: {name: steward-ci-deps, key: kratos-cookie-secret}
+            - name: SECRETS_CIPHER
+              valueFrom:
+                secretKeyRef: {name: steward-ci-deps, key: kratos-cipher-secret}
+          ports:
+            - containerPort: 4433
+            - containerPort: 4434
+          readinessProbe:
+            httpGet: {path: /health/ready, port: 4434}
+            periodSeconds: 3
+          volumeMounts:
+            - {name: config, mountPath: /etc/kratos, readOnly: true}
+      volumes:
+        - name: config
+          configMap:
+            name: steward-kratos

@@ -1,0 +1,411 @@
+# The kind install test's values (ci/kind/run.sh), layered on values.yaml.
+# Generated values live in Secrets run.sh creates; nothing here is a real
+# credential.
+#
+# - Bring-your-own Postgres: one pgvector instance (ci/kind/deps.yaml) with a
+#   database and role per service, steward_<alias>/<alias>.
+# - Each service's own settings (DATABASE_DSN, GRPC_PORT, the addresses of
+#   the services it calls, its keys) come in through `env`: the chart's own
+#   DATABASE_HOST/PORT/... and PORT are not what the services read yet.
+# - opaBundle is off: no service reads OPA_BUNDLE_PATH; each builds the
+#   steward-authz bundle into its own image.
+# - Images: run.sh sets <alias>.image.repository/tag from ci/kind/images.txt.
+identity:
+  logging:
+    level: debug
+  postgres:
+    external:
+      enabled: true
+      host: steward-postgres
+      port: 5432
+      database: steward_identity
+      user: identity
+      sslmode: disable
+      passwordSecretName: steward-ci-env
+      passwordSecretKey: identity-password
+  env:
+  - name: DATABASE_DSN
+    valueFrom:
+      secretKeyRef:
+        name: steward-ci-env
+        key: identity-dsn
+  - name: RABBITMQ_URL
+    valueFrom:
+      secretKeyRef:
+        name: steward-ci-env
+        key: rabbitmq-url
+  - name: GRPC_PORT
+    value: '9090'
+  - name: KRATOS_ADMIN_URL
+    value: http://steward-kratos:4434
+  - name: CORE_GRPC_ADDR
+    value: steward-core:9091
+  - name: REDIS_ADDR
+    value: steward-valkey:6379
+  - name: TOTP_ENC_KEY
+    valueFrom:
+      secretKeyRef:
+        name: steward-ci-env
+        key: totp-enc-key
+  - name: GATEWAY_BASE_URL
+    value: http://steward-gateway:8080
+  - name: SMTP_HOST
+    value: localhost
+  - name: SMTP_PORT
+    value: '1025'
+  - name: SMTP_FROM
+    value: no-reply@example.org
+  replicaCount: 1
+  podAntiAffinity: false
+identity-postgres:
+  enabled: false
+core:
+  logging:
+    level: debug
+  postgres:
+    external:
+      enabled: true
+      host: steward-postgres
+      port: 5432
+      database: steward_core
+      user: core
+      sslmode: disable
+      passwordSecretName: steward-ci-env
+      passwordSecretKey: core-password
+  env:
+  - name: DATABASE_DSN
+    valueFrom:
+      secretKeyRef:
+        name: steward-ci-env
+        key: core-dsn
+  - name: RABBITMQ_URL
+    valueFrom:
+      secretKeyRef:
+        name: steward-ci-env
+        key: rabbitmq-url
+  - name: GRPC_PORT
+    value: '9091'
+  - name: CORE_SETTINGS_KEY
+    valueFrom:
+      secretKeyRef:
+        name: steward-ci-env
+        key: core-settings-key
+  - name: REDIS_ADDR
+    value: steward-valkey:6379
+  opaBundle:
+    enabled: false
+  replicaCount: 1
+  podAntiAffinity: false
+core-postgres:
+  enabled: false
+workflow:
+  logging:
+    level: debug
+  postgres:
+    external:
+      enabled: true
+      host: steward-postgres
+      port: 5432
+      database: steward_workflow
+      user: workflow
+      sslmode: disable
+      passwordSecretName: steward-ci-env
+      passwordSecretKey: workflow-password
+  env:
+  - name: DATABASE_DSN
+    valueFrom:
+      secretKeyRef:
+        name: steward-ci-env
+        key: workflow-dsn
+  - name: RABBITMQ_URL
+    valueFrom:
+      secretKeyRef:
+        name: steward-ci-env
+        key: rabbitmq-url
+  - name: GRPC_PORT
+    value: '9092'
+  - name: IDENTITY_GRPC_ADDR
+    value: steward-identity:9090
+  - name: CORE_GRPC_ADDR
+    value: steward-core:9091
+  replicaCount: 1
+  podAntiAffinity: false
+workflow-postgres:
+  enabled: false
+obligations:
+  logging:
+    level: debug
+  postgres:
+    external:
+      enabled: true
+      host: steward-postgres
+      port: 5432
+      database: steward_obligations
+      user: obligations
+      sslmode: disable
+      passwordSecretName: steward-ci-env
+      passwordSecretKey: obligations-password
+  env:
+  - name: DATABASE_DSN
+    valueFrom:
+      secretKeyRef:
+        name: steward-ci-env
+        key: obligations-dsn
+  - name: RABBITMQ_URL
+    valueFrom:
+      secretKeyRef:
+        name: steward-ci-env
+        key: rabbitmq-url
+  - name: GRPC_PORT
+    value: '9093'
+  - name: IDENTITY_GRPC_ADDR
+    value: steward-identity:9090
+  - name: CORE_GRPC_ADDR
+    value: steward-core:9091
+  - name: REDIS_ADDR
+    value: steward-valkey:6379
+  - name: SMTP_HOST
+    value: localhost
+  - name: SMTP_PORT
+    value: '1025'
+  - name: SMTP_STARTTLS
+    value: 'false'
+  - name: INTERNAL_BASE_URL
+    value: http://steward-gateway:8080
+  replicaCount: 1
+  podAntiAffinity: false
+obligations-postgres:
+  enabled: false
+audit:
+  logging:
+    level: debug
+  postgres:
+    external:
+      enabled: true
+      host: steward-postgres
+      port: 5432
+      database: steward_audit
+      user: audit
+      sslmode: disable
+      passwordSecretName: steward-ci-env
+      passwordSecretKey: audit-password
+  env:
+  - name: DATABASE_DSN
+    valueFrom:
+      secretKeyRef:
+        name: steward-ci-env
+        key: audit-dsn
+  - name: RABBITMQ_URL
+    valueFrom:
+      secretKeyRef:
+        name: steward-ci-env
+        key: rabbitmq-url
+  - name: GRPC_PORT
+    value: '9094'
+  replicaCount: 1
+  podAntiAffinity: false
+audit-postgres:
+  enabled: false
+delivery:
+  logging:
+    level: debug
+  postgres:
+    external:
+      enabled: true
+      host: steward-postgres
+      port: 5432
+      database: steward_delivery
+      user: delivery
+      sslmode: disable
+      passwordSecretName: steward-ci-env
+      passwordSecretKey: delivery-password
+  env:
+  - name: DATABASE_DSN
+    valueFrom:
+      secretKeyRef:
+        name: steward-ci-env
+        key: delivery-dsn
+  - name: RABBITMQ_URL
+    valueFrom:
+      secretKeyRef:
+        name: steward-ci-env
+        key: rabbitmq-url
+  - name: GRPC_PORT
+    value: '9095'
+  - name: CORE_GRPC_ADDR
+    value: steward-core:9091
+  replicaCount: 1
+  podAntiAffinity: false
+delivery-postgres:
+  enabled: false
+collab:
+  logging:
+    level: debug
+  postgres:
+    external:
+      enabled: true
+      host: steward-postgres
+      port: 5432
+      database: steward_collab
+      user: collab
+      sslmode: disable
+      passwordSecretName: steward-ci-env
+      passwordSecretKey: collab-password
+  env:
+  - name: DATABASE_DSN
+    valueFrom:
+      secretKeyRef:
+        name: steward-ci-env
+        key: collab-dsn
+  - name: RABBITMQ_URL
+    valueFrom:
+      secretKeyRef:
+        name: steward-ci-env
+        key: rabbitmq-url
+  - name: GRPC_PORT
+    value: '9096'
+  - name: COLLAB_TOKEN_SECRET
+    valueFrom:
+      secretKeyRef:
+        name: steward-ci-env
+        key: collab-token-secret
+  - name: CORE_GRPC_ADDR
+    value: steward-core:9091
+  - name: IDENTITY_GRPC_ADDR
+    value: steward-identity:9090
+  - name: HTTP_PORT
+    value: '8081'
+  replicaCount: 1
+  podAntiAffinity: false
+collab-postgres:
+  enabled: false
+ai:
+  logging:
+    level: debug
+  postgres:
+    external:
+      enabled: true
+      host: steward-postgres
+      port: 5432
+      database: steward_ai
+      user: ai
+      sslmode: disable
+      passwordSecretName: steward-ci-env
+      passwordSecretKey: ai-password
+  env:
+  - name: DATABASE_DSN
+    valueFrom:
+      secretKeyRef:
+        name: steward-ci-env
+        key: ai-dsn
+  - name: RABBITMQ_URL
+    valueFrom:
+      secretKeyRef:
+        name: steward-ci-env
+        key: rabbitmq-url
+  - name: GRPC_PORT
+    value: '9097'
+  - name: REDIS_ADDR
+    value: steward-valkey:6379
+  - name: AI_SETTINGS_KEY
+    valueFrom:
+      secretKeyRef:
+        name: steward-ci-env
+        key: ai-settings-key
+  - name: AI_EMBED_PROVIDER
+    value: stub
+  - name: AI_GENERATION_STUB
+    value: 'true'
+  opaBundle:
+    enabled: false
+  replicaCount: 1
+  podAntiAffinity: false
+ai-postgres:
+  enabled: false
+reporting:
+  logging:
+    level: debug
+  postgres:
+    external:
+      enabled: true
+      host: steward-postgres
+      port: 5432
+      database: steward_reporting
+      user: reporting
+      sslmode: disable
+      passwordSecretName: steward-ci-env
+      passwordSecretKey: reporting-password
+  env:
+  - name: DATABASE_DSN
+    valueFrom:
+      secretKeyRef:
+        name: steward-ci-env
+        key: reporting-dsn
+  - name: RABBITMQ_URL
+    valueFrom:
+      secretKeyRef:
+        name: steward-ci-env
+        key: rabbitmq-url
+  - name: GRPC_PORT
+    value: '9098'
+  - name: IDENTITY_GRPC_ADDR
+    value: steward-identity:9090
+  replicaCount: 1
+  podAntiAffinity: false
+reporting-postgres:
+  enabled: false
+gateway:
+  opaBundle:
+    enabled: false
+  logging:
+    level: debug
+  env:
+  - name: VALKEY_ADDR
+    value: steward-valkey:6379
+  - name: RABBITMQ_URL
+    valueFrom:
+      secretKeyRef:
+        name: steward-ci-env
+        key: rabbitmq-url
+  - name: KRATOS_PUBLIC_URL
+    value: http://steward-kratos:4433
+  - name: KRATOS_ADMIN_URL
+    value: http://steward-kratos:4434
+  - name: COOKIE_INSECURE
+    value: 'true'
+  - name: ALLOWED_ORIGINS
+    value: http://localhost:8080
+  - name: SETUP_TOKEN
+    valueFrom:
+      secretKeyRef:
+        name: steward-ci-env
+        key: setup-token
+  - name: COLLAB_WS_UPSTREAM
+    value: steward-collab:8081
+  - name: STEWARD_IDENTITY_ADDR
+    value: steward-identity:9090
+  - name: STEWARD_CORE_ADDR
+    value: steward-core:9091
+  - name: STEWARD_WORKFLOW_ADDR
+    value: steward-workflow:9092
+  - name: STEWARD_OBLIGATIONS_ADDR
+    value: steward-obligations:9093
+  - name: STEWARD_AUDIT_ADDR
+    value: steward-audit:9094
+  - name: STEWARD_DELIVERY_ADDR
+    value: steward-delivery:9095
+  - name: STEWARD_COLLAB_ADDR
+    value: steward-collab:9096
+  - name: STEWARD_AI_ADDR
+    value: steward-ai:9097
+  - name: STEWARD_REPORTING_ADDR
+    value: steward-reporting:9098
+  replicaCount: 1
+  podAntiAffinity: false
+pdf-renderer:
+  logging:
+    level: debug
+  replicaCount: 1
+  podAntiAffinity: false
+web:
+  enabled: false
