@@ -1,0 +1,31 @@
+suite: umbrella probes
+templates:
+  - charts/gateway/templates/deployment.yaml
+  - charts/audit/templates/deployment.yaml
+  - charts/core/templates/deployment.yaml
+tests:
+  - it: probes gateway on its one HTTP port, rendered once
+    template: charts/gateway/templates/deployment.yaml
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].ports
+          value:
+            - {name: http, containerPort: 8080}
+      - equal:
+          path: spec.template.spec.containers[0].readinessProbe.httpGet
+          value: {path: /readyz, port: http}
+  - it: probes audit with the native gRPC health check
+    template: charts/audit/templates/deployment.yaml
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].readinessProbe.grpc
+          value: {port: 9094}
+      - equal:
+          path: spec.template.spec.containers[0].livenessProbe.grpc
+          value: {port: 9094}
+  - it: keeps the separate HTTP probe port for the services that serve it
+    template: charts/core/templates/deployment.yaml
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].readinessProbe.httpGet
+          value: {path: /readyz, port: probe}

@@ -45,3 +45,27 @@ resolves to the release namespace.
 {{- end -}}
 {{- join "," $items -}}
 {{- end -}}
+
+{{/*
+The probe type: "http" (GET /readyz and /livez on probePort) or "grpc" (the
+kubelet's native grpc.health.v1 probe on the main port). Anything else fails
+the render.
+*/}}
+{{- define "service-chart.probeType" -}}
+{{- $t := .Values.probe.type | default "http" -}}
+{{- if not (has $t (list "http" "grpc")) -}}
+{{- fail (printf "%s: probe.type must be http or grpc, got %q" (include "service-chart.fullname" .) $t) -}}
+{{- end -}}
+{{- $t -}}
+{{- end -}}
+
+{{/*
+"true" when the service needs a separate probe port: an HTTP probe on a port
+other than the main one. An HTTP probe on the main port, or a gRPC probe,
+reuses the main port and renders no second port entry.
+*/}}
+{{- define "service-chart.separateProbePort" -}}
+{{- if and (eq (include "service-chart.probeType" .) "http") (ne (int .Values.probePort) (int .Values.port.number)) -}}
+true
+{{- end -}}
+{{- end -}}

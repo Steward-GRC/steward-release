@@ -164,6 +164,9 @@ audit:
   port:
     name: grpc
     number: 9094
+  # audit has no HTTP listener; it serves grpc.health.v1 on its gRPC port.
+  probe:
+    type: grpc
   postgres:
     enabled: true
     host: steward-audit-postgres-primary
@@ -348,6 +351,8 @@ gateway:
   port:
     name: http
     number: 8080
+  # gateway serves /livez and /readyz on its one HTTP port.
+  probePort: 8080
   podDisruptionBudget:
     enabled: true
     minAvailable: 1

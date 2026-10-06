@@ -15,6 +15,13 @@ podAntiAffinity: false
 port:
   name: grpc
   number: 9090
+# Health probes. `http` (the default) GETs /readyz and /livez on probePort;
+# set probePort to port.number for a service that serves them on its main
+# HTTP port (rendered once, never as a duplicate port). `grpc` uses the
+# kubelet's native grpc.health.v1 probe on the main port, for a service with
+# no HTTP listener; probePort and PROBE_PORT are then unused.
+probe:
+  type: http
 probePort: 8081
 
 resources: {}

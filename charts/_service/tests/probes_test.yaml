@@ -1,0 +1,99 @@
+suite: probes
+templates:
+  - deployment.yaml
+  - service.yaml
+set:
+  aliasName: example
+  image:
+    repository: registry.example.org/steward-example
+    tag: v0.0.0
+tests:
+  - it: probes /readyz and /livez over HTTP on a separate probe port by default
+    template: deployment.yaml
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].readinessProbe.httpGet
+          value: {path: /readyz, port: probe}
+      - equal:
+          path: spec.template.spec.containers[0].livenessProbe.httpGet
+          value: {path: /livez, port: probe}
+      - equal:
+          path: spec.template.spec.containers[0].ports
+          value:
+            - {name: grpc, containerPort: 9090}
+            - {name: probe, containerPort: 8081}
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content: {name: PROBE_PORT, value: "8081"}
+  - it: exposes the separate probe port on the Service
+    template: service.yaml
+    asserts:
+      - equal:
+          path: spec.ports
+          value:
+            - {name: grpc, port: 9090, targetPort: 9090}
+            - {name: probe, port: 8081, targetPort: 8081}
+  - it: probes the main port once when the probe port is the main port
+    template: deployment.yaml
+    set:
+      port: {name: http, number: 8080}
+      probePort: 8080
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].ports
+          value:
+            - {name: http, containerPort: 8080}
+      - equal:
+          path: spec.template.spec.containers[0].readinessProbe.httpGet
+          value: {path: /readyz, port: http}
+      - equal:
+          path: spec.template.spec.containers[0].livenessProbe.httpGet
+          value: {path: /livez, port: http}
+  - it: renders the shared port once on the Service
+    template: service.yaml
+    set:
+      port: {name: http, number: 8080}
+      probePort: 8080
+    asserts:
+      - equal:
+          path: spec.ports
+          value:
+            - {name: http, port: 8080, targetPort: 8080}
+  - it: uses the native gRPC health probe on the main port
+    template: deployment.yaml
+    set:
+      probe: {type: grpc}
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].readinessProbe.grpc
+          value: {port: 9090}
+      - equal:
+          path: spec.template.spec.containers[0].livenessProbe.grpc
+          value: {port: 9090}
+      - notExists:
+          path: spec.template.spec.containers[0].readinessProbe.httpGet
+      - equal:
+          path: spec.template.spec.containers[0].ports
+          value:
+            - {name: grpc, containerPort: 9090}
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          content: {name: PROBE_PORT, value: "8081"}
+  - it: has no probe port on the Service with a gRPC probe
+    template: service.yaml
+    set:
+      probe: {type: grpc}
+    asserts:
+      - equal:
+          path: spec.ports
+          value:
+            - {name: grpc, port: 9090, targetPort: 9090}
+  - it: rejects an unknown probe type
+    template: deployment.yaml
+    set:
+      probe: {type: tcp}
+      # The Service would fail first and take the error.
+      service: {enabled: false}
+    asserts:
+      - failedTemplate:
+          errorPattern: "probe.type must be http or grpc"

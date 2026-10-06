@@ -1,4 +1,8 @@
 {{ include "service-chart.fullname" . }} deployed to {{ .Release.Namespace }}.
-
-Readiness: GET /readyz on the probe port ({{ .Values.probePort }}); fails while a required
-dependency is down. Liveness: GET /livez on the same port; checks the process only.
+{{ if eq (include "service-chart.probeType" .) "grpc" }}
+Readiness and liveness: the grpc.health.v1 check on the main port ({{ .Values.port.number }});
+readiness fails while a required dependency is down.
+{{- else }}
+Readiness: GET /readyz on port {{ .Values.probePort }}; fails while a required dependency is
+down. Liveness: GET /livez on the same port; checks the process only.
+{{- end }}

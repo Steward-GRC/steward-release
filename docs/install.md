@@ -72,6 +72,17 @@ chart only ever reads from them, never writes a plaintext credential of its own.
 [Service-to-service authentication](service-to-service-auth.md) for the workload-identity pieces,
 which need no Secret at all (they ride the cluster's own service-account tokens and OIDC issuer).
 
+## Health probes
+
+Each service alias picks its probe type in `values.yaml` (`<service>.probe.type`):
+
+- `http` (the default): `GET /readyz` and `/livez` on `<service>.probePort` (8081). A service that
+  serves them on its main HTTP port sets `probePort` to that port (gateway does), and the chart
+  renders the port once.
+- `grpc`: the kubelet's native `grpc.health.v1` probe on the service's main port, for a service with
+  no HTTP listener (audit). Your NetworkPolicy implementation must let the node reach pod ports,
+  which every common one does by default.
+
 ## The authz policy bundle
 
 `core`, `gateway` and `ai` (the services that evaluate access in-process) pull the steward-authz

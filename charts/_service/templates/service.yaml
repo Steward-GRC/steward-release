@@ -14,7 +14,9 @@ spec:
     - name: {{ .Values.port.name }}
       port: {{ .Values.port.number }}
       targetPort: {{ .Values.port.number }}
+    {{- if include "service-chart.separateProbePort" . }}
     - name: probe
       port: {{ .Values.probePort }}
       targetPort: {{ .Values.probePort }}
+    {{- end }}
 {{- end }}

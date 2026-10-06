@@ -70,11 +70,14 @@ jobs:
           set -euo pipefail
           echo "::warning::helm-postgres-ha is not published; rendering the bring-your-own Postgres shape only"
           mkdir -p /tmp/umbrella
-          cp -r Chart.yaml values*.yaml charts /tmp/umbrella/
+          cp -r Chart.yaml values*.yaml charts tests /tmp/umbrella/
           yq -i 'del(.dependencies[] | select(.name == "postgres-ha"))' /tmp/umbrella/Chart.yaml
           helm dependency build /tmp/umbrella
           echo "CHART_DIR=/tmp/umbrella" >> "$GITHUB_ENV"
           echo "EXTRA_VALUES=-f /tmp/umbrella/values-byo-postgres-example.yaml" >> "$GITHUB_ENV"
+      - name: helm-unittest (umbrella wiring)
+        if: hashFiles('Chart.yaml') != ''
+        run: helm-unittest "${CHART_DIR:-.}"
       - name: helm template (defaults)
         if: hashFiles('Chart.yaml') != ''
         run: helm template steward "${CHART_DIR:-.}" -f values.yaml ${EXTRA_VALUES:-} --namespace steward > /tmp/rendered-default.yaml

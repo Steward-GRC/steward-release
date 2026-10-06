@@ -26,9 +26,13 @@ spec:
         {{- end }}
       ports:
         - port: {{ .Values.port.number }}
+    {{- if include "service-chart.separateProbePort" . }}
     # No `from`: the probe port stays reachable by the kubelet health check
     # from any source, same as every other control in this chart that scopes
-    # the business port, not the probe. It carries no secret or token.
+    # the business port, not the probe. It carries no secret or token. A gRPC
+    # probe on the main port opens nothing extra: the kubelet probes from the
+    # node, which NetworkPolicy implementations allow to reach local pods.
     - ports:
         - port: {{ .Values.probePort }}
+    {{- end }}
 {{- end }}
