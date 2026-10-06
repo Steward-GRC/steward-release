@@ -1,0 +1,32 @@
+suite: umbrella Postgres extensions
+templates:
+  - templates/NOTES.txt
+tests:
+  - it: names ai's required vector extension in the install notes
+    asserts:
+      - matchRegexRaw:
+          pattern: "ai: its database \\(ai\\) needs these Postgres extensions: vector"
+  - it: tells a bring-your-own install how to create it
+    set:
+      ai-postgres:
+        enabled: false
+      ai:
+        postgres:
+          external:
+            enabled: true
+            host: db.example.org
+            database: steward_ai
+            user: steward_ai
+            passwordSecretName: steward-ai-postgres-external
+    asserts:
+      - matchRegexRaw:
+          pattern: "ai: its database \\(steward_ai\\) needs these Postgres extensions: vector"
+      - matchRegexRaw:
+          pattern: "CREATE EXTENSION IF NOT EXISTS vector;"
+  - it: says nothing when ai is disabled
+    set:
+      ai:
+        enabled: false
+    asserts:
+      - notMatchRegexRaw:
+          pattern: "Postgres extensions"

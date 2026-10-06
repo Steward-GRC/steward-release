@@ -96,6 +96,9 @@ postgres:
   sslmode: require
   passwordSecretName: ""
   passwordSecretKey: password
+  # Postgres extensions the service's migrations need in its database. The
+  # chart can't create them; the umbrella's install notes list them.
+  requiredExtensions: []
   external:
     enabled: false
     host: ""

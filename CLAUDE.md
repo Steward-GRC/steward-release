@@ -51,6 +51,7 @@ Steward install, alongside the appliance.
 │   ├── _pdf-renderer-crds/     the PdfRender CRD, vendored (crds/ only)
 │   └── _ai-crds/               the PolicyAIJob CRD, vendored (crds/ only)
 ├── scripts/                   sync-crds.sh and the CRD pins it reads (crds-upstream.txt)
+├── templates/NOTES.txt        the umbrella's install notes (required Postgres extensions)
 ├── tests/                     helm-unittest suites for the umbrella's per-service wiring
 ├── docs/                      install, upgrade and service-to-service auth
 ├── .github/workflows/         this repo's CI: helm lint/template/kubeconform, DCO, secrets

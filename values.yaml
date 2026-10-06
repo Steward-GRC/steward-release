@@ -369,6 +369,10 @@ ai:
     sslmode: require
     passwordSecretName: steward-ai-postgres-role-app
     passwordSecretKey: password
+    # ai's baseline migration creates vector columns (pgvector). Shown in the
+    # install notes; a bring-your-own database must have it before ai starts.
+    requiredExtensions:
+    - vector
     external:
       enabled: false
       host: ''
@@ -514,9 +518,18 @@ ai-postgres:
   enabled: true
   fullnameOverride: steward-ai-postgres
   replicas: 1
+  # ai needs pgvector, which the official postgres image doesn't ship: the
+  # pgvector image is that image plus the extension, same major and base.
+  image:
+    registry: docker.io
+    repository: pgvector/pgvector
+    tag: "0.8.7-pg18-bookworm"
+    digest: "sha256:2358fcba361ed2233a5ed81b5fe4ca779ccb304120ce531a3bf51c0ed7e2bc11"
   databases:
   - name: ai
     owner: app
+    extensions:
+    - vector
 
 reporting-postgres:
   enabled: true

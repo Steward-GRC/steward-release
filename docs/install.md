@@ -48,6 +48,20 @@ helm install steward . -f values.yaml -f values-byo-postgres-example.yaml \
   --namespace steward --create-namespace
 ```
 
+**ai needs pgvector.** ai's first migration creates `vector` columns, so its database needs the
+[pgvector](https://github.com/pgvector/pgvector) extension. On your own Postgres, install pgvector
+on the server (a stock `postgres` image doesn't have it; the `pgvector/pgvector` image does), then,
+as a superuser, in ai's database and before ai's first start:
+
+```sql
+CREATE EXTENSION IF NOT EXISTS vector;
+```
+
+Without it ai's first migration fails and the pod never becomes Ready. `helm install` prints this
+requirement in its notes for every service with `postgres.requiredExtensions` set. The managed
+`ai-postgres` instance runs the `pgvector/pgvector` image (same Postgres major as the official one,
+pinned by digest in `values.yaml`) and creates the extension itself.
+
 The chart never ships a plaintext default for either path: a managed instance's password comes
 from the Secret `Bugs5382/helm-postgres-ha` generates, and a bring-your-own instance's password
 comes from the Secret you name in `passwordSecretName`. Leaving either unset fails the template
