@@ -199,6 +199,13 @@ delivery:
   port:
     name: grpc
     number: 9095
+  # The internal HTTP port the PDF renderer's Jobs fetch policy HTML from.
+  # delivery's own default (8081) is the chart's probe port, so the chart
+  # always sets it.
+  extraPorts:
+  - name: internal-http
+    number: 8082
+    env: INTERNAL_HTTP_PORT
   postgres:
     enabled: true
     host: steward-delivery-postgres-primary

@@ -69,3 +69,31 @@ reuses the main port and renders no second port entry.
 true
 {{- end -}}
 {{- end -}}
+
+{{/*
+Every container port this alias renders: the main port, the separate probe
+port when there is one, then extraPorts. Fails the render when a number or a
+name repeats, so two listeners can never be configured onto one port.
+*/}}
+{{- define "service-chart.containerPorts" -}}
+{{- $ports := list (dict "name" .Values.port.name "number" (int .Values.port.number)) -}}
+{{- if include "service-chart.separateProbePort" . -}}
+{{- $ports = append $ports (dict "name" "probe" "number" (int .Values.probePort)) -}}
+{{- end -}}
+{{- range .Values.extraPorts -}}
+{{- $ports = append $ports (dict "name" .name "number" (int .number)) -}}
+{{- end -}}
+{{- $numbers := list -}}
+{{- $names := list -}}
+{{- range $ports -}}
+{{- if has .number $numbers -}}
+{{- fail (printf "%s: container port %d is used more than once" (include "service-chart.fullname" $) .number) -}}
+{{- end -}}
+{{- if has .name $names -}}
+{{- fail (printf "%s: container port name %q is used more than once" (include "service-chart.fullname" $) .name) -}}
+{{- end -}}
+{{- $numbers = append $numbers .number -}}
+{{- $names = append $names .name -}}
+{{- end -}}
+{{- toJson $ports -}}
+{{- end -}}

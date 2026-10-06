@@ -26,6 +26,9 @@ spec:
         {{- end }}
       ports:
         - port: {{ .Values.port.number }}
+        {{- range .Values.extraPorts }}
+        - port: {{ .number }}
+        {{- end }}
     {{- if include "service-chart.separateProbePort" . }}
     # No `from`: the probe port stays reachable by the kubelet health check
     # from any source, same as every other control in this chart that scopes

@@ -11,12 +11,9 @@ spec:
   selector:
     {{- include "service-chart.selectorLabels" . | nindent 4 }}
   ports:
-    - name: {{ .Values.port.name }}
-      port: {{ .Values.port.number }}
-      targetPort: {{ .Values.port.number }}
-    {{- if include "service-chart.separateProbePort" . }}
-    - name: probe
-      port: {{ .Values.probePort }}
-      targetPort: {{ .Values.probePort }}
+    {{- range (include "service-chart.containerPorts" . | fromJsonArray) }}
+    - name: {{ .name }}
+      port: {{ .number }}
+      targetPort: {{ .number }}
     {{- end }}
 {{- end }}

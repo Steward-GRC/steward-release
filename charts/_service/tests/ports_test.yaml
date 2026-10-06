@@ -1,0 +1,72 @@
+suite: ports
+templates:
+  - deployment.yaml
+  - service.yaml
+  - networkpolicy.yaml
+set:
+  aliasName: example
+  image:
+    repository: registry.example.org/steward-example
+    tag: v0.0.0
+  extraPorts:
+    - name: internal-http
+      number: 8082
+      env: INTERNAL_HTTP_PORT
+tests:
+  - it: renders an extra port as a container port and sets its env var
+    template: deployment.yaml
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].ports
+          content: {name: internal-http, containerPort: 8082}
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content: {name: INTERNAL_HTTP_PORT, value: "8082"}
+  - it: exposes an extra port on the Service
+    template: service.yaml
+    asserts:
+      - contains:
+          path: spec.ports
+          content: {name: internal-http, port: 8082, targetPort: 8082}
+  - it: scopes an extra port to the caller list like the main port
+    template: networkpolicy.yaml
+    set:
+      workloadAuth:
+        callee: true
+        allowedServiceAccounts: [pdf-renderer]
+    asserts:
+      - equal:
+          path: spec.ingress[0].ports
+          value:
+            - port: 9090
+            - port: 8082
+  - it: fails the render when an extra port reuses the probe port
+    template: deployment.yaml
+    set:
+      service: {enabled: false}
+      extraPorts:
+        - name: internal-http
+          number: 8081
+    asserts:
+      - failedTemplate:
+          errorPattern: "container port 8081 is used more than once"
+  - it: fails the render when an extra port reuses the main port
+    template: deployment.yaml
+    set:
+      service: {enabled: false}
+      extraPorts:
+        - name: internal-http
+          number: 9090
+    asserts:
+      - failedTemplate:
+          errorPattern: "container port 9090 is used more than once"
+  - it: fails the render on a duplicate port name
+    template: deployment.yaml
+    set:
+      service: {enabled: false}
+      extraPorts:
+        - name: probe
+          number: 8090
+    asserts:
+      - failedTemplate:
+          errorPattern: "container port name \"probe\" is used more than once"

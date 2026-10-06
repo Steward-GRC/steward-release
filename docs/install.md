@@ -83,6 +83,10 @@ Each service alias picks its probe type in `values.yaml` (`<service>.probe.type`
   no HTTP listener (audit). Your NetworkPolicy implementation must let the node reach pod ports,
   which every common one does by default.
 
+A service with a second listener declares it in `<service>.extraPorts` (delivery's internal HTTP
+port, 8082, which the PDF renderer's Jobs fetch policy HTML from). The chart passes the number to
+the service in the named variable and fails the render if any two ports of one service collide.
+
 ## The authz policy bundle
 
 `core`, `gateway` and `ai` (the services that evaluate access in-process) pull the steward-authz

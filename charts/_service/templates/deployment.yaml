@@ -47,11 +47,9 @@ spec:
           {{- $separateProbe := include "service-chart.separateProbePort" . }}
           {{- $probePortName := ternary "probe" .Values.port.name (eq $separateProbe "true") }}
           ports:
-            - name: {{ .Values.port.name }}
-              containerPort: {{ .Values.port.number }}
-            {{- if $separateProbe }}
-            - name: probe
-              containerPort: {{ .Values.probePort }}
+            {{- range (include "service-chart.containerPorts" . | fromJsonArray) }}
+            - name: {{ .name }}
+              containerPort: {{ .number }}
             {{- end }}
           readinessProbe:
             {{- if eq $probeType "grpc" }}
@@ -88,6 +86,12 @@ spec:
             {{- end }}
             - name: PORT
               value: {{ .Values.port.number | quote }}
+            {{- range .Values.extraPorts }}
+            {{- if .env }}
+            - name: {{ .env }}
+              value: {{ .number | quote }}
+            {{- end }}
+            {{- end }}
             {{- if .Values.postgres.enabled }}
             {{- $pg := ternary .Values.postgres.external .Values.postgres .Values.postgres.external.enabled }}
             - name: DATABASE_HOST

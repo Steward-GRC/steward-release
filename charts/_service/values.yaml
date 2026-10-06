@@ -24,6 +24,13 @@ probe:
   type: http
 probePort: 8081
 
+# More listeners on the same container: [{name, number, env}]. Each becomes a
+# container port and a Service port, sits behind the same NetworkPolicy caller
+# list as the main port, and, when `env` is set, is passed to the service in
+# that variable so the chart, not a service default, decides the number. A
+# number or name used twice (main, probe or extra) fails the render.
+extraPorts: []
+
 resources: {}
 
 # Every service image is distroless and ships `USER nonroot:nonroot`, a user

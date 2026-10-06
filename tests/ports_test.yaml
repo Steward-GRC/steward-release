@@ -1,0 +1,23 @@
+suite: umbrella ports
+templates:
+  - charts/delivery/templates/deployment.yaml
+  - charts/delivery/templates/service.yaml
+tests:
+  - it: sets delivery's internal HTTP port clear of the probe port
+    template: charts/delivery/templates/deployment.yaml
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content: {name: INTERNAL_HTTP_PORT, value: "8082"}
+      - contains:
+          path: spec.template.spec.containers[0].ports
+          content: {name: internal-http, containerPort: 8082}
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content: {name: PROBE_PORT, value: "8081"}
+  - it: exposes delivery's internal HTTP port for the render Jobs
+    template: charts/delivery/templates/service.yaml
+    asserts:
+      - contains:
+          path: spec.ports
+          content: {name: internal-http, port: 8082, targetPort: 8082}
