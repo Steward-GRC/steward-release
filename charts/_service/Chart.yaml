@@ -1,0 +1,8 @@
+apiVersion: v2
+name: service-chart
+description: Reusable chart for a Steward service (Deployment, Service, HPA, PodDisruptionBudget, ServiceAccount with workload-auth token, NetworkPolicy)
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+maintainers:
+  - name: The Steward Authors

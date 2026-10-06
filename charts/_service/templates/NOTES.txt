@@ -1,0 +1,4 @@
+{{ include "service-chart.fullname" . }} deployed to {{ .Release.Namespace }}.
+
+Readiness: GET /readyz on the probe port ({{ .Values.probePort }}); fails while a required
+dependency is down. Liveness: GET /livez on the same port; checks the process only.

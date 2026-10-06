@@ -1,0 +1,24 @@
+version: '3'
+vars:
+  GOLIC_VERSION: v0.3.0
+  COMMON_LIC: "2026 The Steward Authors"
+  TEMPLATE_LIC: "spdx-apache2"
+tasks:
+  default:
+    cmds:
+      - task: lint
+  lint:
+    desc: Helm lint the umbrella chart and the reusable service chart
+    cmds:
+      - helm lint charts/_service
+      - test -f Chart.yaml && helm lint . -f values.yaml || true
+  license:
+    desc: Verify every source file carries the Apache-2.0 license header (CI; never writes).
+    cmds:
+      - go install github.com/Bugs5382/golic/cmd/golic@{{.GOLIC_VERSION}}
+      - golic inject -t {{.TEMPLATE_LIC}} -c "{{.COMMON_LIC}}" --dry -x
+  license:fix:
+    desc: Inject the Apache-2.0 header into any source file missing it.
+    cmds:
+      - go install github.com/Bugs5382/golic/cmd/golic@{{.GOLIC_VERSION}}
+      - golic inject -t {{.TEMPLATE_LIC}} -c "{{.COMMON_LIC}}"
