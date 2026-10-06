@@ -1,0 +1,7 @@
+# The CRDs this chart ships, vendored from the owning service's generated
+# manifest at a pinned commit. Bump the commit here, run
+# scripts/sync-crds.sh, and commit both; CI runs `scripts/sync-crds.sh --check`.
+#
+# <chart dir>                 <owner/repo>                    <commit>                                  <path in the repo>
+charts/_pdf-renderer-crds     Steward-GRC/steward-pdf-renderer 87323a588996e7c0987bf009936e0dc0e3b369e0 deployments/crd/renders.steward-grc.com_pdfrenders.yaml
+charts/_ai-crds               Steward-GRC/steward-ai           dee16125f2efd08b6f72196c847dd63ac029693f deployments/crd/ai.steward-grc.com_policyaijobs.yaml

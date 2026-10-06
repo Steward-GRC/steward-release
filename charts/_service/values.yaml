@@ -55,12 +55,31 @@ service:
 
 serviceAccount:
   create: true
+  # Empty means steward-<aliasName>.
   name: ""
   annotations: {}
+
+# Off by default: no pod gets the general-purpose service-account token.
+# Turn it on only for a service that calls the Kubernetes API itself, and
+# give it `rbac.rules`.
+automountServiceAccountToken: false
+
+# Namespaced Role + RoleBinding for this alias's service account, written
+# from the service's own RBAC markers. Empty renders neither.
+rbac:
+  rules: []
+
+# More service accounts this alias's service hands to pods it creates (the
+# PDF renderer's Jobs). No RBAC, no token automount.
+extraServiceAccounts: []
 
 # Extra literal env vars: [{name: FOO, value: "bar"}] or
 # [{name: FOO, valueFrom: {secretKeyRef: {name: foo, key: bar}}}].
 env: []
+# The same shape, set by the umbrella's values for settings a service needs
+# to run at all. An `env` entry with the same name replaces one here, so an
+# operator's `env` list never has to repeat these.
+baseEnv: []
 
 # Set by the umbrella for every service that owns a database. The chart
 # assembles DATABASE_HOST/PORT/NAME/USER/SSLMODE as plain values and reads

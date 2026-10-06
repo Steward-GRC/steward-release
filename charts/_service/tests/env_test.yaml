@@ -1,0 +1,40 @@
+suite: environment
+templates:
+  - deployment.yaml
+set:
+  aliasName: example
+  image:
+    repository: registry.example.org/steward-example
+    tag: v0.0.0
+  baseEnv:
+    - name: JOB_NAMESPACE
+      valueFrom:
+        fieldRef:
+          fieldPath: metadata.namespace
+    - name: MODE
+      value: standard
+tests:
+  - it: renders the umbrella's base settings
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: JOB_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content: {name: MODE, value: standard}
+  - it: lets an operator's env entry replace a base setting without a duplicate name
+    set:
+      env:
+        - name: MODE
+          value: custom
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content: {name: MODE, value: custom}
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          content: {name: MODE, value: standard}

@@ -74,6 +74,20 @@ dependencies:
     condition: web.enabled
 
   # ---------------------------------------------------------------------------
+  # The services' CustomResourceDefinitions, vendored at a pinned commit
+  # (scripts/crds-upstream.txt; CI checks them against upstream). Each ships
+  # with the service that owns its controller.
+  # ---------------------------------------------------------------------------
+  - name: pdf-renderer-crds
+    version: 0.1.0
+    repository: "file://charts/_pdf-renderer-crds"
+    condition: pdf-renderer.enabled
+  - name: ai-crds
+    version: 0.1.0
+    repository: "file://charts/_ai-crds"
+    condition: ai.enabled
+
+  # ---------------------------------------------------------------------------
   # Bugs5382/helm-postgres-ha — one instance per data-owning service, never
   # shared across services. Pinned at the exact chart version (program gap:
   # that chart has no published release yet; see docs/install.md and the port

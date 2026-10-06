@@ -25,11 +25,7 @@ app.kubernetes.io/name: {{ include "service-chart.fullname" . }}
 The service account name, whether created by this chart or supplied by the operator.
 */}}
 {{- define "service-chart.serviceAccountName" -}}
-{{- if .Values.serviceAccount.create -}}
-{{ include "service-chart.fullname" . }}
-{{- else -}}
 {{ .Values.serviceAccount.name | default (include "service-chart.fullname" .) }}
-{{- end -}}
 {{- end -}}
 
 {{/*

@@ -49,6 +49,8 @@ jobs:
           sudo install helm-unittest/untt-linux-amd64 /usr/local/bin/helm-unittest
       - name: helm-unittest (the reusable service chart)
         run: helm-unittest charts/_service
+      - name: Vendored CRDs match their pinned upstream commits
+        run: scripts/sync-crds.sh --check
       - name: helm lint (the reusable service chart)
         run: helm lint charts/_service
       - name: helm lint (umbrella)

@@ -1,0 +1,8 @@
+apiVersion: v2
+name: pdf-renderer-crds
+description: The pdf-renderer service's CustomResourceDefinitions, vendored at a pinned commit (see scripts/crds-upstream.txt)
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+maintainers:
+  - name: The Steward Authors

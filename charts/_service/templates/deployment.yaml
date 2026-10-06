@@ -16,7 +16,7 @@ spec:
         {{- include "service-chart.labels" . | nindent 8 }}
     spec:
       serviceAccountName: {{ include "service-chart.serviceAccountName" . }}
-      automountServiceAccountToken: false
+      automountServiceAccountToken: {{ .Values.automountServiceAccountToken }}
       {{- if .Values.podAntiAffinity }}
       affinity:
         podAntiAffinity:
@@ -138,6 +138,21 @@ spec:
             {{- if .Values.opaBundle.enabled }}
             - name: OPA_BUNDLE_PATH
               value: {{ .Values.opaBundle.mountPath | quote }}
+            {{- end }}
+            {{- $overridden := list }}
+            {{- range .Values.env }}
+            {{- $overridden = append $overridden .name }}
+            {{- end }}
+            {{- range .Values.baseEnv }}
+            {{- if not (has .name $overridden) }}
+            - name: {{ .name }}
+              {{- if .value }}
+              value: {{ .value | quote }}
+              {{- else if .valueFrom }}
+              valueFrom:
+                {{- toYaml .valueFrom | nindent 16 }}
+              {{- end }}
+            {{- end }}
             {{- end }}
             {{- range .Values.env }}
             - name: {{ .name }}

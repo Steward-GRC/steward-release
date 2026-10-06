@@ -208,6 +208,22 @@ delivery:
   - name: internal-http
     number: 8082
     env: INTERNAL_HTTP_PORT
+  # PDF export: delivery creates PdfRender resources for the pdf-renderer
+  # operator in its own namespace and watches their status.
+  automountServiceAccountToken: true
+  rbac:
+    rules:
+    - apiGroups: [renders.steward-grc.com]
+      resources: [pdfrenders]
+      verbs: [create, list, watch]
+  baseEnv:
+  - name: POD_NAMESPACE
+    valueFrom:
+      fieldRef:
+        fieldPath: metadata.namespace
+  # Where the render Jobs fetch policy HTML from: the internal-http port.
+  - name: INTERNAL_BASE_URL
+    value: http://steward-delivery:8082
   postgres:
     enabled: true
     host: steward-delivery-postgres-primary
@@ -243,6 +259,46 @@ pdf-renderer:
     number: 9099
   # Not a caller itself: the operator gives each render Job its own
   # steward-audience token for the fetch from delivery.
+  #
+  # The operator reconciles PdfRenders into Jobs, so it gets the API token,
+  # on its own service account, with exactly its controller's RBAC markers
+  # plus leader election. The Jobs run as steward-pdf-renderer (the caller
+  # name delivery's allow-list expects), with no RBAC and no API token.
+  serviceAccount:
+    name: steward-pdf-renderer-operator
+  extraServiceAccounts:
+  - steward-pdf-renderer
+  automountServiceAccountToken: true
+  rbac:
+    rules:
+    - apiGroups: [renders.steward-grc.com]
+      resources: [pdfrenders]
+      verbs: [get, list, watch, create, update, patch, delete]
+    - apiGroups: [renders.steward-grc.com]
+      resources: [pdfrenders/status]
+      verbs: [get, update, patch]
+    - apiGroups: [renders.steward-grc.com]
+      resources: [pdfrenders/finalizers]
+      verbs: [update]
+    - apiGroups: [batch]
+      resources: [jobs]
+      verbs: [get, list, watch, create, update, patch, delete]
+    - apiGroups: [""]
+      resources: [events]
+      verbs: [create, patch]
+    - apiGroups: [coordination.k8s.io]
+      resources: [leases]
+      verbs: [get, list, watch, create, update, patch, delete]
+  baseEnv:
+  - name: WATCH_NAMESPACE
+    valueFrom:
+      fieldRef:
+        fieldPath: metadata.namespace
+  - name: JOB_SERVICE_ACCOUNT
+    value: steward-pdf-renderer
+  # The image every render Job runs (the repo's Dockerfile.renderer).
+  - name: RENDERER_IMAGE
+    value: ghcr.io/steward-grc/steward-pdf-renderer-renderer:v0.1.0
 
 collab:
   enabled: true
@@ -291,6 +347,19 @@ ai:
   port:
     name: grpc
     number: 9097
+  # ai's server creates and reads PolicyAIJob resources (its job endpoints
+  # and the related-policy re-evaluation) in its own namespace.
+  automountServiceAccountToken: true
+  rbac:
+    rules:
+    - apiGroups: [ai.steward-grc.com]
+      resources: [policyaijobs]
+      verbs: [get, create]
+  baseEnv:
+  - name: AI_JOB_NAMESPACE
+    valueFrom:
+      fieldRef:
+        fieldPath: metadata.namespace
   postgres:
     enabled: true
     host: steward-ai-postgres-primary

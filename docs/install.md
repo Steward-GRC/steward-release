@@ -72,6 +72,29 @@ chart only ever reads from them, never writes a plaintext credential of its own.
 [Service-to-service authentication](service-to-service-auth.md) for the workload-identity pieces,
 which need no Secret at all (they ride the cluster's own service-account tokens and OIDC issuer).
 
+## Custom resources and API access
+
+The chart ships two CustomResourceDefinitions in its `crds/` (installed by `helm install` before
+anything else): `PdfRender` (`renders.steward-grc.com`, with pdf-renderer) and `PolicyAIJob`
+(`ai.steward-grc.com`, with ai). They are vendored from each service's generated manifest at a
+pinned commit listed in `scripts/crds-upstream.txt` (minus the controller-gen version annotation);
+`scripts/sync-crds.sh` refreshes them and CI fails if a vendored copy drifts from its pin. Installing CRDs needs cluster-admin (or an account
+allowed to create CustomResourceDefinitions).
+
+Every pod runs with `automountServiceAccountToken: false` except the three services that call the
+Kubernetes API, each with a namespaced Role written from its own needs and nothing cluster-wide:
+
+| Service | Why | Role |
+|---|---|---|
+| pdf-renderer (service account `steward-pdf-renderer-operator`) | reconciles PdfRenders into render Jobs | pdfrenders (+ status, finalizers), batch jobs, events, leader-election leases |
+| delivery | creates PdfRenders for PDF export and watches their status | pdfrenders: create, list, watch |
+| ai | creates and reads PolicyAIJobs | policyaijobs: get, create |
+
+The render Jobs run as `steward-pdf-renderer`, a service account with no RBAC and no API token; it
+is the caller name delivery's allow-list expects on the HTML fetch. Set the Jobs' image with
+`pdf-renderer.baseEnv` `RENDERER_IMAGE` (or an `env` entry of the same name), and create the
+object-storage Secret the Jobs read (`steward-pdf-renderer-s3` by default) before the first export.
+
 ## Health probes
 
 Each service alias picks its probe type in `values.yaml` (`<service>.probe.type`):
