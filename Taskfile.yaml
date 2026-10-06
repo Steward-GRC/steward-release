@@ -12,6 +12,10 @@ tasks:
     cmds:
       - helm lint charts/_service
       - test -f Chart.yaml && helm lint . -f values.yaml || true
+  test:
+    desc: Template unit tests for the reusable service chart (needs the helm-unittest plugin)
+    cmds:
+      - helm unittest charts/_service
   license:
     desc: Verify every source file carries the Apache-2.0 license header (CI; never writes).
     cmds:

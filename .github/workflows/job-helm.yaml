@@ -10,6 +10,9 @@ env:
   HELM_SHA256: f5355c79190951eed23c5432a3b920e071f4c00a64f75e077de0dd4cb7b294ea
   KUBECONFORM_VERSION: v0.6.7
   KUBECONFORM_SHA256: 95f14e87aa28c09d5941f11bd024c1d02fdc0303ccaa23f61cef67bc92619d73
+  # helm-unittest's standalone binary: no Helm plugin install needed.
+  HELM_UNITTEST_VERSION: 1.1.2
+  HELM_UNITTEST_SHA256: de03d6b7ba7683282064702d0b36fbbe812ab2a22691fa3a8b2ce57c2682609c
 jobs:
   build:
     name: Build & Test
@@ -36,6 +39,16 @@ jobs:
           tar -xzf kubeconform.tar.gz kubeconform
           sudo install kubeconform /usr/local/bin/kubeconform
           kubeconform -v
+      - name: Install helm-unittest (pinned, checksum-checked)
+        run: |
+          set -euo pipefail
+          curl -fsSL -o helm-unittest.tgz "https://github.com/helm-unittest/helm-unittest/releases/download/v${HELM_UNITTEST_VERSION}/helm-unittest-linux-amd64-${HELM_UNITTEST_VERSION}.tgz"
+          echo "${HELM_UNITTEST_SHA256}  helm-unittest.tgz" | sha256sum -c -
+          mkdir -p helm-unittest
+          tar -xzf helm-unittest.tgz -C helm-unittest untt-linux-amd64
+          sudo install helm-unittest/untt-linux-amd64 /usr/local/bin/helm-unittest
+      - name: helm-unittest (the reusable service chart)
+        run: helm-unittest charts/_service
       - name: helm lint (the reusable service chart)
         run: helm lint charts/_service
       - name: helm lint (umbrella)

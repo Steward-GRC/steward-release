@@ -19,6 +19,13 @@ probePort: 8081
 
 resources: {}
 
+# Every service image is distroless and ships `USER nonroot:nonroot`, a user
+# name the kubelet can't check against runAsNonRoot. The pod runs as that
+# user's well-known numeric UID/GID instead.
+podSecurityContext:
+  runAsUser: 65532
+  runAsGroup: 65532
+
 podDisruptionBudget:
   enabled: false
   minAvailable: 1

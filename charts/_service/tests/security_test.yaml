@@ -1,0 +1,34 @@
+suite: pod security context
+templates:
+  - deployment.yaml
+set:
+  aliasName: example
+  image:
+    repository: registry.example.org/steward-example
+    tag: v0.0.0
+tests:
+  - it: runs as the numeric distroless nonroot user by default
+    asserts:
+      - equal:
+          path: spec.template.spec.securityContext
+          value:
+            runAsNonRoot: true
+            runAsUser: 65532
+            runAsGroup: 65532
+            seccompProfile:
+              type: RuntimeDefault
+  - it: takes a per-alias user and group
+    set:
+      podSecurityContext:
+        runAsUser: 10001
+        runAsGroup: 10002
+    asserts:
+      - equal:
+          path: spec.template.spec.securityContext.runAsUser
+          value: 10001
+      - equal:
+          path: spec.template.spec.securityContext.runAsGroup
+          value: 10002
+      - equal:
+          path: spec.template.spec.securityContext.runAsNonRoot
+          value: true

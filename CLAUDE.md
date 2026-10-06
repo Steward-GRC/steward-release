@@ -73,6 +73,8 @@ Steward install, alongside the appliance.
 - No generated code here. `helm template` output is never committed; CI renders it fresh from
   `values.yaml`, `values-ha-example.yaml` and a bring-your-own-Postgres example, each piped to a
   pinned, checksum-checked `kubeconform`.
+- Template unit tests are helm-unittest suites in `charts/_service/tests/*_test.yaml` (`task test`;
+  CI runs the pinned, checksum-checked standalone binary). Every template change gets a case.
 <!-- layout:end -->
 
 ## CI and Actions minutes
