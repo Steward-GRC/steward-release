@@ -53,23 +53,31 @@ jobs:
           tar -xzf kubeconform.tar.gz kubeconform
           sudo install kubeconform /usr/local/bin/kubeconform
           kubeconform -v
-      - name: helm lint (umbrella)
-        run: helm lint . -f values.yaml
       - name: helm lint (the reusable service chart)
         run: helm lint charts/_service
+      - name: helm lint (umbrella)
+        # The umbrella (Chart.yaml at the repo root) lands in a later PR of
+        # the port; a PR that carries only the reusable chart has none yet.
+        if: hashFiles('Chart.yaml') != ''
+        run: helm lint . -f values.yaml
       - name: helm dependency build
+        if: hashFiles('Chart.yaml') != ''
         # Known gap, reported: Bugs5382/helm-postgres-ha has no published chart
         # yet, so this step is expected to fail until it ships. See
-        # docs/install.md and the port plan.
+        # docs/install.md.
         continue-on-error: true
         run: helm dependency build .
       - name: helm template (defaults)
+        if: hashFiles('Chart.yaml') != ''
         run: helm template steward . -f values.yaml --namespace steward > /tmp/rendered-default.yaml
       - name: helm template (high availability example)
+        if: hashFiles('values-ha-example.yaml') != ''
         run: helm template steward . -f values.yaml -f values-ha-example.yaml --namespace steward > /tmp/rendered-ha.yaml
       - name: kubeconform (defaults)
+        if: hashFiles('Chart.yaml') != ''
         run: kubeconform -strict -summary -kubernetes-version 1.29.0 /tmp/rendered-default.yaml
       - name: kubeconform (high availability example)
+        if: hashFiles('values-ha-example.yaml') != ''
         run: kubeconform -strict -summary -kubernetes-version 1.29.0 /tmp/rendered-ha.yaml
   dco:
     if: (github.event_name == 'pull_request' || github.event_name == 'merge_group') && github.event.pull_request.draft != true
