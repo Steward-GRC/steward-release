@@ -1,0 +1,128 @@
+apiVersion: v2
+name: steward-release
+description: Steward platform — composes every service on the reusable service chart, each on its own Bugs5382 HA Postgres instance (or bring-your-own Postgres)
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+maintainers:
+  - name: The Steward Authors
+
+dependencies:
+  # ---------------------------------------------------------------------------
+  # One reusable chart (charts/_service), aliased once per Steward service.
+  # A new service is a values block here, never a new chart.
+  # ---------------------------------------------------------------------------
+  - name: service-chart
+    alias: identity
+    version: 0.1.0
+    repository: "file://charts/_service"
+    condition: identity.enabled
+  - name: service-chart
+    alias: core
+    version: 0.1.0
+    repository: "file://charts/_service"
+    condition: core.enabled
+  - name: service-chart
+    alias: workflow
+    version: 0.1.0
+    repository: "file://charts/_service"
+    condition: workflow.enabled
+  - name: service-chart
+    alias: obligations
+    version: 0.1.0
+    repository: "file://charts/_service"
+    condition: obligations.enabled
+  - name: service-chart
+    alias: audit
+    version: 0.1.0
+    repository: "file://charts/_service"
+    condition: audit.enabled
+  - name: service-chart
+    alias: delivery
+    version: 0.1.0
+    repository: "file://charts/_service"
+    condition: delivery.enabled
+  - name: service-chart
+    alias: pdf-renderer
+    version: 0.1.0
+    repository: "file://charts/_service"
+    condition: pdf-renderer.enabled
+  - name: service-chart
+    alias: collab
+    version: 0.1.0
+    repository: "file://charts/_service"
+    condition: collab.enabled
+  - name: service-chart
+    alias: ai
+    version: 0.1.0
+    repository: "file://charts/_service"
+    condition: ai.enabled
+  - name: service-chart
+    alias: reporting
+    version: 0.1.0
+    repository: "file://charts/_service"
+    condition: reporting.enabled
+  - name: service-chart
+    alias: gateway
+    version: 0.1.0
+    repository: "file://charts/_service"
+    condition: gateway.enabled
+  - name: service-chart
+    alias: web
+    version: 0.1.0
+    repository: "file://charts/_service"
+    condition: web.enabled
+
+  # ---------------------------------------------------------------------------
+  # Bugs5382/helm-postgres-ha — one instance per data-owning service, never
+  # shared across services. Pinned at the exact chart version (program gap:
+  # that chart has no published release yet; see docs/install.md and the port
+  # plan). Each is condition-gated so bring-your-own Postgres (disable the
+  # dependency, point the service's `postgres.external.*` at your own
+  # instance instead) stays a supported install path.
+  # ---------------------------------------------------------------------------
+  - name: postgres-ha
+    alias: identity-postgres
+    version: 0.1.0
+    repository: "oci://ghcr.io/bugs5382/charts"
+    condition: identity-postgres.enabled
+  - name: postgres-ha
+    alias: core-postgres
+    version: 0.1.0
+    repository: "oci://ghcr.io/bugs5382/charts"
+    condition: core-postgres.enabled
+  - name: postgres-ha
+    alias: workflow-postgres
+    version: 0.1.0
+    repository: "oci://ghcr.io/bugs5382/charts"
+    condition: workflow-postgres.enabled
+  - name: postgres-ha
+    alias: obligations-postgres
+    version: 0.1.0
+    repository: "oci://ghcr.io/bugs5382/charts"
+    condition: obligations-postgres.enabled
+  - name: postgres-ha
+    alias: audit-postgres
+    version: 0.1.0
+    repository: "oci://ghcr.io/bugs5382/charts"
+    condition: audit-postgres.enabled
+  - name: postgres-ha
+    alias: delivery-postgres
+    version: 0.1.0
+    repository: "oci://ghcr.io/bugs5382/charts"
+    condition: delivery-postgres.enabled
+  - name: postgres-ha
+    alias: collab-postgres
+    version: 0.1.0
+    repository: "oci://ghcr.io/bugs5382/charts"
+    condition: collab-postgres.enabled
+  - name: postgres-ha
+    alias: ai-postgres
+    version: 0.1.0
+    repository: "oci://ghcr.io/bugs5382/charts"
+    condition: ai-postgres.enabled
+  - name: postgres-ha
+    alias: reporting-postgres
+    version: 0.1.0
+    repository: "oci://ghcr.io/bugs5382/charts"
+    condition: reporting-postgres.enabled

@@ -1,0 +1,73 @@
+# A documented high-availability install: 3-replica Postgres (a quorum for
+# failover) and multi-replica services. Layer this on top of values.yaml:
+#
+#   helm install steward . -f values.yaml -f values-ha-example.yaml \
+#     --namespace steward --create-namespace
+#
+# Replica counts here are a starting point, not a requirement: every count is
+# user-set in values.yaml already (this file only raises the defaults).
+
+identity:
+  replicaCount: 3
+
+core:
+  replicaCount: 3
+
+workflow:
+  replicaCount: 3
+
+obligations:
+  replicaCount: 3
+
+audit:
+  replicaCount: 3
+
+delivery:
+  replicaCount: 3
+
+pdf-renderer:
+  replicaCount: 2
+
+collab:
+  replicaCount: 3
+
+ai:
+  replicaCount: 3
+
+reporting:
+  replicaCount: 3
+
+gateway:
+  replicaCount: 3
+
+web:
+  replicaCount: 3
+
+# One Bugs5382/helm-postgres-ha instance per data-owning service, each at a
+# 3-member quorum (the chart's own default).
+identity-postgres:
+  replicas: 3
+
+core-postgres:
+  replicas: 3
+
+workflow-postgres:
+  replicas: 3
+
+obligations-postgres:
+  replicas: 3
+
+audit-postgres:
+  replicas: 3
+
+delivery-postgres:
+  replicas: 3
+
+collab-postgres:
+  replicas: 3
+
+ai-postgres:
+  replicas: 3
+
+reporting-postgres:
+  replicas: 3
