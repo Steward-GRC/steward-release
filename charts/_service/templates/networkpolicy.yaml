@@ -1,9 +1,10 @@
 {{/*
-Defence in depth, never the only control: the per-method workload-auth check
-in each callee is what actually enforces the caller list. This policy only
-narrows which pods can reach the port at all.
+Defence in depth, never the only control where the service verifies caller
+tokens: the per-method workload-auth check in each callee is what actually
+enforces the caller list. This policy only narrows which pods can reach the
+port at all, and renders for every alias with a caller list, callee or not.
 */}}
-{{- if and .Values.networkPolicy.enabled .Values.workloadAuth.callee }}
+{{- if and .Values.networkPolicy.enabled .Values.workloadAuth.allowedServiceAccounts }}
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:

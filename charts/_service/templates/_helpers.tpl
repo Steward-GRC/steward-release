@@ -97,3 +97,16 @@ name repeats, so two listeners can never be configured onto one port.
 {{- end -}}
 {{- toJson $ports -}}
 {{- end -}}
+
+{{/*
+workloadAuth.authMode, validated: "enabled" (WORKLOAD_AUTH left unset, the
+verification block set) or "disabled" (WORKLOAD_AUTH=disabled alone, local
+runs only). The services accept nothing else.
+*/}}
+{{- define "service-chart.workloadAuthMode" -}}
+{{- $m := .Values.workloadAuth.authMode | default "enabled" -}}
+{{- if not (has $m (list "enabled" "disabled")) -}}
+{{- fail (printf "%s: workloadAuth.authMode must be enabled or disabled, got %q" (include "service-chart.fullname" .) $m) -}}
+{{- end -}}
+{{- $m -}}
+{{- end -}}

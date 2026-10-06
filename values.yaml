@@ -33,9 +33,10 @@ identity:
       database: ''
       user: ''
       passwordSecretName: ''
+  # No workload-auth library yet: the chart wires no WORKLOAD_* settings, and
+  # the caller list only scopes the NetworkPolicy (see
+  # docs/service-to-service-auth.md).
   workloadAuth:
-    callee: true
-    authMode: enabled
     allowedServiceAccounts:
     - gateway
     - core
@@ -114,10 +115,10 @@ workflow:
       database: ''
       user: ''
       passwordSecretName: ''
+  # No workload-auth library yet: the chart wires no WORKLOAD_* settings, and
+  # the caller list only scopes the NetworkPolicy (see
+  # docs/service-to-service-auth.md).
   workloadAuth:
-    caller: true
-    callee: true
-    authMode: enabled
     allowedServiceAccounts:
     - gateway
 
@@ -146,10 +147,10 @@ obligations:
       database: ''
       user: ''
       passwordSecretName: ''
+  # No workload-auth library yet: the chart wires no WORKLOAD_* settings, and
+  # the caller list only scopes the NetworkPolicy (see
+  # docs/service-to-service-auth.md).
   workloadAuth:
-    caller: true
-    callee: true
-    authMode: enabled
     allowedServiceAccounts:
     - gateway
     - reporting
@@ -182,9 +183,10 @@ audit:
       database: ''
       user: ''
       passwordSecretName: ''
+  # No workload-auth library yet: the chart wires no WORKLOAD_* settings, and
+  # the caller list only scopes the NetworkPolicy (see
+  # docs/service-to-service-auth.md).
   workloadAuth:
-    callee: true
-    authMode: enabled
     allowedServiceAccounts:
     - gateway
     - reporting
@@ -239,8 +241,8 @@ pdf-renderer:
   port:
     name: grpc
     number: 9099
-  workloadAuth:
-    caller: true
+  # Not a caller itself: the operator gives each render Job its own
+  # steward-audience token for the fetch from delivery.
 
 collab:
   enabled: true

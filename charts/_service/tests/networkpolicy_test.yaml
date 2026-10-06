@@ -7,7 +7,6 @@ set:
     repository: registry.example.org/steward-example
     tag: v0.0.0
   workloadAuth:
-    callee: true
     allowedServiceAccounts: [gateway]
 tests:
   - it: scopes the main port to the caller list and leaves the probe port open
@@ -36,3 +35,10 @@ tests:
                       app.kubernetes.io/name: steward-gateway
               ports:
                 - port: 9090
+  - it: renders nothing without a caller list
+    set:
+      workloadAuth:
+        allowedServiceAccounts: []
+    asserts:
+      - hasDocuments:
+          count: 0

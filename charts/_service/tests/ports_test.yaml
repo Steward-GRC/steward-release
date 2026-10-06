@@ -32,7 +32,6 @@ tests:
     template: networkpolicy.yaml
     set:
       workloadAuth:
-        callee: true
         allowedServiceAccounts: [pdf-renderer]
     asserts:
       - equal:

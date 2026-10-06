@@ -14,9 +14,10 @@ authentication wired in from the start, and health-checked probes.
   instance, replica count set by you (1 by default, a 3-member quorum in
   [`values-ha-example.yaml`](values-ha-example.yaml)); bring your own instead with
   [`values-byo-postgres-example.yaml`](values-byo-postgres-example.yaml).
-- **Service-to-service auth:** every call between services carries a projected,
-  audience-scoped service-account token, verified against the cluster's OIDC JWKS, with a
-  per-service caller allow-list and a `NetworkPolicy` in depth.
+- **Service-to-service auth:** calls carry a projected, audience-scoped service-account token,
+  verified against the cluster's OIDC JWKS with a per-service caller allow-list, and a
+  `NetworkPolicy` in depth. Not every service verifies tokens yet; see
+  [docs/service-to-service-auth.md](docs/service-to-service-auth.md) for which do.
 - **Health:** every service's readiness fails while a required dependency is down; liveness checks
   only the process.
 

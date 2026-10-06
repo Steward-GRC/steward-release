@@ -91,13 +91,17 @@ postgres:
 # service-account token; a callee verifies it against the cluster's OIDC
 # JWKS and checks the caller against its own allow-list.
 # `allowedServiceAccounts` holds bare caller names ("gateway", "core", ...);
-# the chart expands each to "<namespace>/steward-<name>". See
-# docs/service-to-service-auth.md.
+# the chart expands each to "<namespace>/steward-<name>" for a callee and
+# also scopes the NetworkPolicy to them. Set `caller`/`callee` only for a
+# service that implements workload auth. See docs/service-to-service-auth.md.
 workloadAuth:
   caller: false
   callee: false
   audience: steward
   tokenPath: /var/run/secrets/steward/token
+  # `enabled`: WORKLOAD_AUTH stays unset and the verification block below is
+  # set. `disabled`: WORKLOAD_AUTH=disabled alone, for a local run only.
+  # Anything else fails the render.
   authMode: enabled
   oidc:
     # Defaults assume the cluster's own API server is the OIDC issuer

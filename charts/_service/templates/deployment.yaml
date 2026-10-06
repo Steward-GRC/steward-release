@@ -111,8 +111,12 @@ spec:
                   key: {{ $pg.passwordSecretKey }}
             {{- end }}
             {{- if .Values.workloadAuth.callee }}
+            {{- if eq (include "service-chart.workloadAuthMode" .) "disabled" }}
+            {{- /* Local runs only: the services reject this together with any WORKLOAD_OIDC_* setting. */}}
             - name: WORKLOAD_AUTH
-              value: {{ .Values.workloadAuth.authMode | quote }}
+              value: "disabled"
+            {{- else }}
+            {{- /* Enabled is WORKLOAD_AUTH unset; the services reject any other value. */}}
             - name: WORKLOAD_AUDIENCE
               value: {{ .Values.workloadAuth.audience | quote }}
             - name: WORKLOAD_OIDC_ISSUER
@@ -124,7 +128,8 @@ spec:
             - name: WORKLOAD_OIDC_BEARER_FILE
               value: {{ .Values.workloadAuth.oidc.bearerFile | default .Values.workloadAuth.tokenPath | quote }}
             - name: WORKLOAD_ALLOWED_SERVICEACCOUNTS
-              value: {{ include "service-chart.allowedServiceAccounts" . | quote }}
+              value: {{ include "service-chart.allowedServiceAccounts" . | required (printf "%s: workloadAuth.allowedServiceAccounts is required for an enabled callee" (include "service-chart.fullname" .)) | quote }}
+            {{- end }}
             {{- end }}
             {{- if .Values.workloadAuth.caller }}
             - name: WORKLOAD_TOKEN_FILE
