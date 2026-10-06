@@ -1,0 +1,444 @@
+# Per-service values for the umbrella chart. Each top-level key matches an
+# alias declared in Chart.yaml. The reusable charts/_service chart's defaults
+# apply unless overridden here. Image repository/tag are placeholders until
+# each service repo publishes real images; the Harbor/GHCR path and the exact
+# tag are an operator concern at install time, not a default this chart ships.
+
+identity:
+  enabled: true
+  aliasName: identity
+  image:
+    repository: ghcr.io/steward-grc/steward-identity
+    tag: v0.1.0
+  replicaCount: 2
+  podAntiAffinity: true
+  port:
+    name: grpc
+    number: 9090
+  podDisruptionBudget:
+    enabled: true
+    minAvailable: 1
+  postgres:
+    enabled: true
+    host: steward-identity-postgres-primary
+    port: 5432
+    database: identity
+    user: app
+    sslmode: require
+    passwordSecretName: steward-identity-postgres-role-app
+    passwordSecretKey: password
+    external:
+      enabled: false
+      host: ''
+      database: ''
+      user: ''
+      passwordSecretName: ''
+  workloadAuth:
+    callee: true
+    authMode: enabled
+    allowedServiceAccounts:
+    - gateway
+    - core
+    - workflow
+    - obligations
+    - reporting
+    - collab
+
+core:
+  enabled: true
+  aliasName: core
+  opaBundle:
+    enabled: true
+    image:
+      repository: ghcr.io/steward-grc/steward-authz-bundle
+      tag: v0.1.0
+  image:
+    repository: ghcr.io/steward-grc/steward-core
+    tag: v0.1.0
+  replicaCount: 2
+  podAntiAffinity: true
+  port:
+    name: grpc
+    number: 9091
+  podDisruptionBudget:
+    enabled: true
+    minAvailable: 1
+  postgres:
+    enabled: true
+    host: steward-core-postgres-primary
+    port: 5432
+    database: core
+    user: app
+    sslmode: require
+    passwordSecretName: steward-core-postgres-role-app
+    passwordSecretKey: password
+    external:
+      enabled: false
+      host: ''
+      database: ''
+      user: ''
+      passwordSecretName: ''
+  workloadAuth:
+    caller: true
+    callee: true
+    authMode: disabled
+    allowedServiceAccounts:
+    - gateway
+    - workflow
+    - delivery
+    - collab
+    - obligations
+
+workflow:
+  enabled: true
+  aliasName: workflow
+  image:
+    repository: ghcr.io/steward-grc/steward-workflow
+    tag: v0.1.0
+  replicaCount: 1
+  port:
+    name: grpc
+    number: 9092
+  postgres:
+    enabled: true
+    host: steward-workflow-postgres-primary
+    port: 5432
+    database: workflow
+    user: app
+    sslmode: require
+    passwordSecretName: steward-workflow-postgres-role-app
+    passwordSecretKey: password
+    external:
+      enabled: false
+      host: ''
+      database: ''
+      user: ''
+      passwordSecretName: ''
+  workloadAuth:
+    caller: true
+    callee: true
+    authMode: enabled
+    allowedServiceAccounts:
+    - gateway
+
+obligations:
+  enabled: true
+  aliasName: obligations
+  image:
+    repository: ghcr.io/steward-grc/steward-obligations
+    tag: v0.1.0
+  replicaCount: 1
+  port:
+    name: grpc
+    number: 9093
+  postgres:
+    enabled: true
+    host: steward-obligations-postgres-primary
+    port: 5432
+    database: obligations
+    user: app
+    sslmode: require
+    passwordSecretName: steward-obligations-postgres-role-app
+    passwordSecretKey: password
+    external:
+      enabled: false
+      host: ''
+      database: ''
+      user: ''
+      passwordSecretName: ''
+  workloadAuth:
+    caller: true
+    callee: true
+    authMode: enabled
+    allowedServiceAccounts:
+    - gateway
+    - reporting
+
+audit:
+  enabled: true
+  aliasName: audit
+  image:
+    repository: ghcr.io/steward-grc/steward-audit
+    tag: v0.1.0
+  replicaCount: 1
+  port:
+    name: grpc
+    number: 9094
+  postgres:
+    enabled: true
+    host: steward-audit-postgres-primary
+    port: 5432
+    database: audit
+    user: app
+    sslmode: require
+    passwordSecretName: steward-audit-postgres-role-app
+    passwordSecretKey: password
+    external:
+      enabled: false
+      host: ''
+      database: ''
+      user: ''
+      passwordSecretName: ''
+  workloadAuth:
+    callee: true
+    authMode: enabled
+    allowedServiceAccounts:
+    - gateway
+    - reporting
+
+delivery:
+  enabled: true
+  aliasName: delivery
+  image:
+    repository: ghcr.io/steward-grc/steward-delivery
+    tag: v0.1.0
+  replicaCount: 1
+  port:
+    name: grpc
+    number: 9095
+  postgres:
+    enabled: true
+    host: steward-delivery-postgres-primary
+    port: 5432
+    database: delivery
+    user: app
+    sslmode: require
+    passwordSecretName: steward-delivery-postgres-role-app
+    passwordSecretKey: password
+    external:
+      enabled: false
+      host: ''
+      database: ''
+      user: ''
+      passwordSecretName: ''
+  workloadAuth:
+    caller: true
+    callee: true
+    authMode: enabled
+    allowedServiceAccounts:
+    - gateway
+    - pdf-renderer
+
+pdf-renderer:
+  enabled: true
+  aliasName: pdf-renderer
+  image:
+    repository: ghcr.io/steward-grc/steward-pdf-renderer
+    tag: v0.1.0
+  replicaCount: 1
+  port:
+    name: grpc
+    number: 9099
+  workloadAuth:
+    caller: true
+
+collab:
+  enabled: true
+  aliasName: collab
+  image:
+    repository: ghcr.io/steward-grc/steward-collab
+    tag: v0.1.0
+  replicaCount: 1
+  port:
+    name: grpc
+    number: 9096
+  postgres:
+    enabled: true
+    host: steward-collab-postgres-primary
+    port: 5432
+    database: collab
+    user: app
+    sslmode: require
+    passwordSecretName: steward-collab-postgres-role-app
+    passwordSecretKey: password
+    external:
+      enabled: false
+      host: ''
+      database: ''
+      user: ''
+      passwordSecretName: ''
+  workloadAuth:
+    caller: true
+    callee: true
+    authMode: enabled
+    allowedServiceAccounts:
+    - gateway
+
+ai:
+  enabled: true
+  aliasName: ai
+  opaBundle:
+    enabled: true
+    image:
+      repository: ghcr.io/steward-grc/steward-authz-bundle
+      tag: v0.1.0
+  image:
+    repository: ghcr.io/steward-grc/steward-ai
+    tag: v0.1.0
+  replicaCount: 1
+  port:
+    name: grpc
+    number: 9097
+  postgres:
+    enabled: true
+    host: steward-ai-postgres-primary
+    port: 5432
+    database: ai
+    user: app
+    sslmode: require
+    passwordSecretName: steward-ai-postgres-role-app
+    passwordSecretKey: password
+    external:
+      enabled: false
+      host: ''
+      database: ''
+      user: ''
+      passwordSecretName: ''
+  workloadAuth:
+    callee: true
+    authMode: enabled
+    allowedServiceAccounts:
+    - gateway
+
+reporting:
+  enabled: true
+  aliasName: reporting
+  image:
+    repository: ghcr.io/steward-grc/steward-reporting
+    tag: v0.1.0
+  replicaCount: 1
+  port:
+    name: grpc
+    number: 9098
+  postgres:
+    enabled: true
+    host: steward-reporting-postgres-primary
+    port: 5432
+    database: reporting
+    user: app
+    sslmode: require
+    passwordSecretName: steward-reporting-postgres-role-app
+    passwordSecretKey: password
+    external:
+      enabled: false
+      host: ''
+      database: ''
+      user: ''
+      passwordSecretName: ''
+  workloadAuth:
+    caller: true
+    callee: true
+    authMode: enabled
+    allowedServiceAccounts:
+    - gateway
+
+gateway:
+  enabled: true
+  aliasName: gateway
+  opaBundle:
+    enabled: true
+    image:
+      repository: ghcr.io/steward-grc/steward-authz-bundle
+      tag: v0.1.0
+  image:
+    repository: ghcr.io/steward-grc/steward-gateway
+    tag: v0.1.0
+  replicaCount: 2
+  podAntiAffinity: true
+  port:
+    name: http
+    number: 8080
+  podDisruptionBudget:
+    enabled: true
+    minAvailable: 1
+  workloadAuth:
+    caller: true
+
+web:
+  enabled: true
+  aliasName: web
+  image:
+    repository: ghcr.io/steward-grc/steward-web
+    tag: v0.1.0
+  replicaCount: 2
+  port:
+    name: http
+    number: 3000
+
+# ---------------------------------------------------------------------------
+# Bugs5382/helm-postgres-ha, one instance per data-owning service. `replicas`
+# is user-set: 1 here, 3 (a quorum) in values-ha-example.yaml. Set
+# `<service>-postgres.enabled: false` plus the service's own
+# `<service>.postgres.external.*` to bring your own Postgres instead.
+# ---------------------------------------------------------------------------
+identity-postgres:
+  enabled: true
+  fullnameOverride: steward-identity-postgres
+  replicas: 1
+  databases:
+  - name: identity
+    owner: app
+
+core-postgres:
+  enabled: true
+  fullnameOverride: steward-core-postgres
+  replicas: 1
+  databases:
+  - name: core
+    owner: app
+
+workflow-postgres:
+  enabled: true
+  fullnameOverride: steward-workflow-postgres
+  replicas: 1
+  databases:
+  - name: workflow
+    owner: app
+
+obligations-postgres:
+  enabled: true
+  fullnameOverride: steward-obligations-postgres
+  replicas: 1
+  databases:
+  - name: obligations
+    owner: app
+
+audit-postgres:
+  enabled: true
+  fullnameOverride: steward-audit-postgres
+  replicas: 1
+  databases:
+  - name: audit
+    owner: app
+
+delivery-postgres:
+  enabled: true
+  fullnameOverride: steward-delivery-postgres
+  replicas: 1
+  databases:
+  - name: delivery
+    owner: app
+
+collab-postgres:
+  enabled: true
+  fullnameOverride: steward-collab-postgres
+  replicas: 1
+  databases:
+  - name: collab
+    owner: app
+
+ai-postgres:
+  enabled: true
+  fullnameOverride: steward-ai-postgres
+  replicas: 1
+  databases:
+  - name: ai
+    owner: app
+
+reporting-postgres:
+  enabled: true
+  fullnameOverride: steward-reporting-postgres
+  replicas: 1
+  databases:
+  - name: reporting
+    owner: app

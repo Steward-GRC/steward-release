@@ -1,0 +1,116 @@
+# Bring-your-own Postgres: disable every Bugs5382/helm-postgres-ha instance and
+# point each service at your own database and credentials Secret instead. Layer
+# this on top of values.yaml:
+#
+#   helm install steward . -f values.yaml -f values-byo-postgres-example.yaml \
+#     --namespace steward --create-namespace
+#
+# Create each passwordSecretName below before installing (see docs/install.md).
+
+identity-postgres:
+  enabled: false
+
+identity:
+  postgres:
+    external:
+      enabled: true
+      host: your-postgres-host.example.org
+      database: identity
+      user: steward_identity
+      passwordSecretName: steward-identity-postgres-external
+
+core-postgres:
+  enabled: false
+
+core:
+  postgres:
+    external:
+      enabled: true
+      host: your-postgres-host.example.org
+      database: core
+      user: steward_core
+      passwordSecretName: steward-core-postgres-external
+
+workflow-postgres:
+  enabled: false
+
+workflow:
+  postgres:
+    external:
+      enabled: true
+      host: your-postgres-host.example.org
+      database: workflow
+      user: steward_workflow
+      passwordSecretName: steward-workflow-postgres-external
+
+obligations-postgres:
+  enabled: false
+
+obligations:
+  postgres:
+    external:
+      enabled: true
+      host: your-postgres-host.example.org
+      database: obligations
+      user: steward_obligations
+      passwordSecretName: steward-obligations-postgres-external
+
+audit-postgres:
+  enabled: false
+
+audit:
+  postgres:
+    external:
+      enabled: true
+      host: your-postgres-host.example.org
+      database: audit
+      user: steward_audit
+      passwordSecretName: steward-audit-postgres-external
+
+delivery-postgres:
+  enabled: false
+
+delivery:
+  postgres:
+    external:
+      enabled: true
+      host: your-postgres-host.example.org
+      database: delivery
+      user: steward_delivery
+      passwordSecretName: steward-delivery-postgres-external
+
+collab-postgres:
+  enabled: false
+
+collab:
+  postgres:
+    external:
+      enabled: true
+      host: your-postgres-host.example.org
+      database: collab
+      user: steward_collab
+      passwordSecretName: steward-collab-postgres-external
+
+ai-postgres:
+  enabled: false
+
+ai:
+  postgres:
+    external:
+      enabled: true
+      host: your-postgres-host.example.org
+      database: ai
+      user: steward_ai
+      passwordSecretName: steward-ai-postgres-external
+
+reporting-postgres:
+  enabled: false
+
+reporting:
+  postgres:
+    external:
+      enabled: true
+      host: your-postgres-host.example.org
+      database: reporting
+      user: steward_reporting
+      passwordSecretName: steward-reporting-postgres-external
