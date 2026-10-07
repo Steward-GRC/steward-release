@@ -135,6 +135,18 @@ spec:
             - name: WORKLOAD_TOKEN_FILE
               value: {{ .Values.workloadAuth.tokenPath | quote }}
             {{- end }}
+            {{- if .Values.devQuickLogin.enabled }}
+            {{- if and (not .Values.devQuickLogin.configMapName) (not .Values.devQuickLogin.secretName) }}
+            {{- fail (printf "%s: devQuickLogin.enabled needs configMapName or secretName" (include "service-chart.fullname" .)) }}
+            {{- end }}
+            {{- if and .Values.devQuickLogin.configMapName .Values.devQuickLogin.secretName }}
+            {{- fail (printf "%s: devQuickLogin can't set both configMapName and secretName" (include "service-chart.fullname" .)) }}
+            {{- end }}
+            - name: STEWARD_DEV_QUICK_LOGIN
+              value: "true"
+            - name: STEWARD_DEV_QUICK_LOGIN_USERS
+              value: {{ printf "/var/run/secrets/steward-dev-quick-login/%s" .Values.devQuickLogin.key | quote }}
+            {{- end }}
             {{- $overridden := list }}
             {{- range .Values.env }}
             {{- $overridden = append $overridden .name }}
@@ -171,16 +183,24 @@ spec:
           {{- end }}
           {{- $jwksCreds := include "service-chart.jwksCredentials" . }}
           {{- $identity := or .Values.workloadAuth.caller $jwksCreds }}
-          {{- if $identity }}
+          {{- if or $identity .Values.devQuickLogin.enabled }}
           volumeMounts:
+            {{- if $identity }}
             - name: workload-identity
               mountPath: /var/run/secrets/steward
               readOnly: true
+            {{- end }}
+            {{- if .Values.devQuickLogin.enabled }}
+            - name: dev-quick-login
+              mountPath: /var/run/secrets/steward-dev-quick-login
+              readOnly: true
+            {{- end }}
           {{- end }}
       {{- $jwksCreds := include "service-chart.jwksCredentials" . }}
       {{- $identity := or .Values.workloadAuth.caller $jwksCreds }}
-      {{- if $identity }}
+      {{- if or $identity .Values.devQuickLogin.enabled }}
       volumes:
+        {{- if $identity }}
         - name: workload-identity
           projected:
             sources:
@@ -206,4 +226,15 @@ spec:
                     - key: ca.crt
                       path: kube-ca/ca.crt
               {{- end }}
+        {{- end }}
+        {{- if .Values.devQuickLogin.enabled }}
+        - name: dev-quick-login
+          {{- if .Values.devQuickLogin.configMapName }}
+          configMap:
+            name: {{ .Values.devQuickLogin.configMapName }}
+          {{- else }}
+          secret:
+            secretName: {{ .Values.devQuickLogin.secretName }}
+          {{- end }}
+        {{- end }}
       {{- end }}

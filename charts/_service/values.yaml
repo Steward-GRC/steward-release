@@ -170,6 +170,17 @@ workloadAuth:
     bearerFile: /var/run/secrets/steward/jwks/token
   allowedServiceAccounts: []
 
+# The web apps' dev-only quick login: never a value this chart ships by
+# default, and the image's own Dockerfile build argument (DEV_QUICK_LOGIN)
+# has to be true too, or the server switch below does nothing. Mounts an
+# existing ConfigMap or Secret's accounts JSON (one of configMapName or
+# secretName) and points STEWARD_DEV_QUICK_LOGIN_USERS at it.
+devQuickLogin:
+  enabled: false
+  configMapName: ""
+  secretName: ""
+  key: users.json
+
 networkPolicy:
   enabled: true
 

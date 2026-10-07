@@ -1,0 +1,72 @@
+suite: dev quick login
+templates:
+  - deployment.yaml
+set:
+  aliasName: example
+  image:
+    repository: registry.example.org/steward-example
+    tag: v0.0.0
+tests:
+  - it: sets nothing by default
+    asserts:
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          any: true
+          content: {name: STEWARD_DEV_QUICK_LOGIN}
+      - notExists:
+          path: spec.template.spec.containers[0].volumeMounts
+      - notExists:
+          path: spec.template.spec.volumes
+  - it: mounts an existing ConfigMap's accounts file and points the server switch at it
+    set:
+      devQuickLogin:
+        enabled: true
+        configMapName: steward-example-dev-quick-login
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content: {name: STEWARD_DEV_QUICK_LOGIN, value: "true"}
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content: {name: STEWARD_DEV_QUICK_LOGIN_USERS, value: /var/run/secrets/steward-dev-quick-login/users.json}
+      - contains:
+          path: spec.template.spec.containers[0].volumeMounts
+          content: {name: dev-quick-login, mountPath: /var/run/secrets/steward-dev-quick-login, readOnly: true}
+      - contains:
+          path: spec.template.spec.volumes
+          content:
+            name: dev-quick-login
+            configMap:
+              name: steward-example-dev-quick-login
+  - it: mounts an existing Secret's accounts file instead, with its own key
+    set:
+      devQuickLogin:
+        enabled: true
+        secretName: steward-example-dev-quick-login
+        key: accounts.json
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content: {name: STEWARD_DEV_QUICK_LOGIN_USERS, value: /var/run/secrets/steward-dev-quick-login/accounts.json}
+      - contains:
+          path: spec.template.spec.volumes
+          content:
+            name: dev-quick-login
+            secret:
+              secretName: steward-example-dev-quick-login
+  - it: fails enabled with neither a ConfigMap nor a Secret named
+    set:
+      devQuickLogin:
+        enabled: true
+    asserts:
+      - failedTemplate:
+          errorPattern: "steward-example: devQuickLogin.enabled needs configMapName or secretName"
+  - it: fails enabled with both a ConfigMap and a Secret named
+    set:
+      devQuickLogin:
+        enabled: true
+        configMapName: steward-example-dev-quick-login
+        secretName: steward-example-dev-quick-login
+    asserts:
+      - failedTemplate:
+          errorPattern: "steward-example: devQuickLogin can't set both configMapName and secretName"

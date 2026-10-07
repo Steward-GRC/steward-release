@@ -281,6 +281,25 @@ gateway's `COOKIE_INSECURE` (also a `gateway.env` value, default `false`) drops 
 cookie's Secure flag. Local and kind installs only, for a gateway reached over plain HTTP; never
 set it to `true` in a value this chart ships for anything else.
 
+### The dev quick login
+
+steward-web's sign-in page can show a dev-only quick login, built only into a dev image (the
+Dockerfile's `DEV_QUICK_LOGIN=true` build argument) and switched on at runtime by
+`<app>.devQuickLogin.enabled`, which mounts an existing ConfigMap or Secret's accounts JSON and
+sets `STEWARD_DEV_QUICK_LOGIN`/`STEWARD_DEV_QUICK_LOGIN_USERS` for you:
+
+```yaml
+web-staff:
+  image:
+    tag: dev-quick-login
+  devQuickLogin:
+    enabled: true
+    configMapName: steward-web-staff-dev-quick-login
+```
+
+Local and kind installs only; the chart's own shipped defaults never turn this on, and the
+runtime switch does nothing against a release image that wasn't built with `DEV_QUICK_LOGIN=true`.
+
 ## Service addresses
 
 The chart gives every service the addresses of the services it calls (`CORE_GRPC_ADDR`,
