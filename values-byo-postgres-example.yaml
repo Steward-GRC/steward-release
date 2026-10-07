@@ -103,6 +103,16 @@ ai:
       user: steward_ai
       passwordSecretName: steward-ai-postgres-external
 
+# ai's operator uses ai's database: the same settings as ai above.
+ai-operator:
+  postgres:
+    external:
+      enabled: true
+      host: your-postgres-host.example.org
+      database: ai
+      user: steward_ai
+      passwordSecretName: steward-ai-postgres-external
+
 reporting-postgres:
   enabled: false
 

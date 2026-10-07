@@ -34,6 +34,10 @@ collab:
 ai:
   replicaCount: 3
 
+# Leader election: one replica works, the other takes over.
+ai-operator:
+  replicaCount: 2
+
 reporting:
   replicaCount: 3
 

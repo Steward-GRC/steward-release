@@ -295,9 +295,11 @@ pdf-renderer:
   # steward-audience token for the fetch from delivery.
   #
   # The operator reconciles PdfRenders into Jobs, so it gets the API token,
-  # on its own service account, with exactly its controller's RBAC markers
-  # plus leader election. The Jobs run as steward-pdf-renderer (the caller
-  # name delivery's allow-list expects), with no RBAC and no API token.
+  # on its own service account, with a Role holding only the calls its
+  # controller and leader election make (narrower than its RBAC markers;
+  # docs/install.md maps each rule). The Jobs run as steward-pdf-renderer
+  # (the caller name delivery's allow-list expects), with no RBAC and no API
+  # token.
   serviceAccount:
     name: steward-pdf-renderer-operator
   extraServiceAccounts:
@@ -307,22 +309,29 @@ pdf-renderer:
     rules:
     - apiGroups: [renders.steward-grc.com]
       resources: [pdfrenders]
-      verbs: [get, list, watch, create, update, patch, delete]
+      verbs: [get, list, watch]
     - apiGroups: [renders.steward-grc.com]
       resources: [pdfrenders/status]
-      verbs: [get, update, patch]
+      verbs: [update]
+    # The Jobs it creates carry an owner reference that blocks the
+    # PdfRender's deletion, which needs update on its finalizers.
     - apiGroups: [renders.steward-grc.com]
       resources: [pdfrenders/finalizers]
       verbs: [update]
     - apiGroups: [batch]
       resources: [jobs]
-      verbs: [get, list, watch, create, update, patch, delete]
+      verbs: [get, list, watch, create]
     - apiGroups: [""]
       resources: [events]
       verbs: [create, patch]
+    # Leader election: create the lease once, then read and renew only its own.
     - apiGroups: [coordination.k8s.io]
       resources: [leases]
-      verbs: [get, list, watch, create, update, patch, delete]
+      verbs: [create]
+    - apiGroups: [coordination.k8s.io]
+      resources: [leases]
+      resourceNames: [steward-pdf-renderer.renders.steward-grc.com]
+      verbs: [get, update]
   baseEnv:
   - name: WATCH_NAMESPACE
     valueFrom:
@@ -421,6 +430,70 @@ ai:
     authMode: enabled
     allowedServiceAccounts:
     - gateway
+
+# ai's second binary: the operator that runs the PolicyAIJobs ai's server
+# creates (and schedules the nightly relationship job). It uses ai's own
+# database and reads the same settings as ai (RABBITMQ_URL, REDIS_ADDR,
+# AI_SETTINGS_KEY, the embeddings and generation settings): set them in both
+# `ai.env` and `ai-operator.env`. It serves no gRPC, calls no Steward
+# service and has no callers, so it has no Service, no workload identity and
+# no NetworkPolicy; its probes are on probePort and its metrics on port.
+ai-operator:
+  enabled: true
+  aliasName: ai-operator
+  image:
+    repository: ghcr.io/steward-grc/steward-ai-operator
+    tag: v0.1.0
+  replicaCount: 1
+  port:
+    name: metrics
+    number: 9090
+    env: METRICS_PORT
+  service:
+    enabled: false
+  automountServiceAccountToken: true
+  rbac:
+    rules:
+    # The reconciler reads and watches jobs, the GC deletes finished ones,
+    # and the scheduler creates the nightly relationship job.
+    - apiGroups: [ai.steward-grc.com]
+      resources: [policyaijobs]
+      verbs: [get, list, watch, create, delete]
+    - apiGroups: [ai.steward-grc.com]
+      resources: [policyaijobs/status]
+      verbs: [update]
+    - apiGroups: [""]
+      resources: [events]
+      verbs: [create, patch]
+    # Leader election: create the lease once, then read and renew only its own.
+    - apiGroups: [coordination.k8s.io]
+      resources: [leases]
+      verbs: [create]
+    - apiGroups: [coordination.k8s.io]
+      resources: [leases]
+      resourceNames: [steward-ai-operator.ai.steward-grc.com]
+      verbs: [get, update]
+  baseEnv:
+  - name: AI_JOB_NAMESPACE
+    valueFrom:
+      fieldRef:
+        fieldPath: metadata.namespace
+  # ai's database, the same settings as ai.postgres (keep them in step).
+  postgres:
+    enabled: true
+    host: steward-ai-postgres-primary
+    port: 5432
+    database: ai
+    user: app
+    sslmode: require
+    passwordSecretName: steward-ai-postgres-role-app
+    passwordSecretKey: password
+    external:
+      enabled: false
+      host: ''
+      database: ''
+      user: ''
+      passwordSecretName: ''
 
 reporting:
   enabled: true

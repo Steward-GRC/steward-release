@@ -10,6 +10,7 @@ audit          Steward-GRC/steward-audit        b5cf28324c0d8ae74921db25161818b1
 delivery       Steward-GRC/steward-delivery     1f091fb45335aa31e6bafc0d26a57ccbd37d1542 Dockerfile
 pdf-renderer   Steward-GRC/steward-pdf-renderer 87323a588996e7c0987bf009936e0dc0e3b369e0 Dockerfile.operator
 collab         Steward-GRC/steward-collab       c66d112543b8c20d4b7b98d669413b7125d90b4a Dockerfile
-ai             Steward-GRC/steward-ai           dee16125f2efd08b6f72196c847dd63ac029693f Dockerfile
+ai             Steward-GRC/steward-ai           5a0e2f6f9db593f4ee2016bfb69d6bcb62e8ecd4 Dockerfile
+ai-operator    Steward-GRC/steward-ai           5a0e2f6f9db593f4ee2016bfb69d6bcb62e8ecd4 Dockerfile.operator
 reporting      Steward-GRC/steward-reporting    fd01881f787def07b4838f9de6e1b1e7946a84c1 Dockerfile
 gateway        Steward-GRC/steward-gateway      e08132d9143d2c941f740d04fac43fef26d82ec9 Dockerfile

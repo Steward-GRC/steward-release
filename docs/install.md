@@ -114,19 +114,36 @@ kubectl apply --server-side -f charts/_pdf-renderer-crds/crds/ -f charts/_ai-crd
 On a cluster this release owns alone, `--set crds.install=true` lets `helm install` install them
 from `crds/` instead (first install only; Helm never upgrades or deletes CRDs).
 
-Every pod runs with `automountServiceAccountToken: false` except the three services that call the
-Kubernetes API, each with a namespaced Role written from its own needs and nothing cluster-wide:
+Every pod runs with `automountServiceAccountToken: false` except the four that call the Kubernetes
+API. Each has a namespaced Role holding only the calls its code makes, and nothing cluster-wide:
 
-| Service | Why | Role |
+| Workload (service account) | Why | Role |
 |---|---|---|
-| pdf-renderer (service account `steward-pdf-renderer-operator`) | reconciles PdfRenders into render Jobs | pdfrenders (+ status, finalizers), batch jobs, events, leader-election leases |
-| delivery | creates PdfRenders for PDF export and watches their status | pdfrenders: create, list, watch |
-| ai | creates and reads PolicyAIJobs | policyaijobs: get, create |
+| pdf-renderer operator (`steward-pdf-renderer-operator`) | reconciles PdfRenders into render Jobs | pdfrenders: get, list, watch; pdfrenders/status: update; pdfrenders/finalizers: update (the Jobs' blocking owner reference); batch jobs: get, list, watch, create; events: create, patch; leases: create, then get and update on its own lease only |
+| ai operator (`steward-ai-operator`) | runs PolicyAIJobs, deletes finished ones, schedules the nightly relationship job | policyaijobs: get, list, watch, create, delete; policyaijobs/status: update; events: create, patch; leases: create, then get and update on its own lease only |
+| delivery (`steward-delivery`) | creates PdfRenders for PDF export and watches their status | pdfrenders: create, list, watch |
+| ai (`steward-ai`) | creates and reads PolicyAIJobs | policyaijobs: get, create |
+
+pdf-renderer's own RBAC markers grant more (every verb on pdfrenders, update, patch and delete on
+Jobs); the chart grants only what its controller calls. Each operator watches its own namespace
+only.
 
 The render Jobs run as `steward-pdf-renderer`, a service account with no RBAC and no API token; it
 is the caller name delivery's allow-list expects on the HTML fetch. Set the Jobs' image with
 `pdf-renderer.baseEnv` `RENDERER_IMAGE` (or an `env` entry of the same name), and create the
 object-storage Secret the Jobs read (`steward-pdf-renderer-s3` by default) before the first export.
+
+### ai's operator
+
+ai ships two binaries: the gRPC server (`ai`) and the operator (`ai-operator`, the image built from
+steward-ai's `Dockerfile.operator`) that runs the PolicyAIJobs the server creates. Without the
+operator ai's jobs are created and never run. `ai-operator.enabled` is on by default; turn it off
+together with ai (`ai.enabled`). The operator uses ai's database and reads the same settings as ai:
+set the same `postgres` (or `postgres.external`) values, and add the same `RABBITMQ_URL`,
+`REDIS_ADDR`, `AI_SETTINGS_KEY` and embeddings and generation settings to `ai-operator.env` as to
+`ai.env`. It serves its probes on 8081 and controller metrics on 9090, has no Service and no
+workload identity (it calls no Steward service), and uses leader election, so a second replica only
+takes over.
 
 ## Cluster-scoped objects
 
@@ -167,8 +184,8 @@ port, 8082, which the PDF renderer's Jobs fetch policy HTML from). The chart pas
 the service in the named variable and fails the render if any two ports of one service collide.
 
 The main port's number reaches the service in the variable `<service>.port.env` names: `GRPC_PORT`
-for the Go services, `METRICS_PORT` for pdf-renderer, `PORT` for the web apps, and none for the
-gateway, whose default listen address already matches its 8080.
+for the Go services, `METRICS_PORT` for the pdf-renderer and ai operators, `PORT` for the web apps,
+and none for the gateway, whose default listen address already matches its 8080.
 
 ## Web apps
 

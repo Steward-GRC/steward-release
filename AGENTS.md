@@ -6,7 +6,7 @@ hook-enforced rules). Keep this file current when the build, layout, or public A
 ## What this is
 
 Steward release: Helm charts for a cloud-native Steward install (identity, core, workflow,
-obligations, audit, delivery, pdf-renderer, collab, ai, reporting, gateway, web-staff, web-admin), alongside the
+obligations, audit, delivery, pdf-renderer, collab, ai, ai-operator, reporting, gateway, web-staff, web-admin), alongside the
 future appliance. The pinned release manifest and the `steward-migrate` tool named in the design
 docs are not in this pass's scope; they're follow-up issues.
 

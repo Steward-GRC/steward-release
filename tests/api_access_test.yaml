@@ -6,6 +6,10 @@ templates:
   - charts/pdf-renderer/templates/serviceaccount.yaml
   - charts/ai/templates/deployment.yaml
   - charts/ai/templates/role.yaml
+  - charts/ai-operator/templates/deployment.yaml
+  - charts/ai-operator/templates/role.yaml
+  - charts/ai-operator/templates/rolebinding.yaml
+  - charts/ai-operator/templates/service.yaml
   - charts/delivery/templates/deployment.yaml
   - charts/delivery/templates/role.yaml
   - charts/core/templates/deployment.yaml
@@ -26,7 +30,7 @@ tests:
           path: spec.template.spec.containers[0].env
           content: {name: RENDERER_IMAGE}
           any: true
-  - it: grants the pdf-renderer operator exactly its controller's RBAC markers plus leader election
+  - it: grants the pdf-renderer operator only the API calls its controller makes
     template: charts/pdf-renderer/templates/role.yaml
     asserts:
       - equal:
@@ -34,22 +38,27 @@ tests:
           value:
             - apiGroups: [renders.steward-grc.com]
               resources: [pdfrenders]
-              verbs: [get, list, watch, create, update, patch, delete]
+              verbs: [get, list, watch]
             - apiGroups: [renders.steward-grc.com]
               resources: [pdfrenders/status]
-              verbs: [get, update, patch]
+              verbs: [update]
+            # Owner references with blockOwnerDeletion on the Jobs it creates.
             - apiGroups: [renders.steward-grc.com]
               resources: [pdfrenders/finalizers]
               verbs: [update]
             - apiGroups: [batch]
               resources: [jobs]
-              verbs: [get, list, watch, create, update, patch, delete]
+              verbs: [get, list, watch, create]
             - apiGroups: [""]
               resources: [events]
               verbs: [create, patch]
             - apiGroups: [coordination.k8s.io]
               resources: [leases]
-              verbs: [get, list, watch, create, update, patch, delete]
+              verbs: [create]
+            - apiGroups: [coordination.k8s.io]
+              resources: [leases]
+              resourceNames: [steward-pdf-renderer.renders.steward-grc.com]
+              verbs: [get, update]
   - it: binds that Role to the operator's service account
     template: charts/pdf-renderer/templates/rolebinding.yaml
     asserts:
@@ -80,6 +89,65 @@ tests:
             - apiGroups: [ai.steward-grc.com]
               resources: [policyaijobs]
               verbs: [get, create]
+  - it: deploys ai's PolicyAIJob operator on its own service account with the API token
+    template: charts/ai-operator/templates/deployment.yaml
+    asserts:
+      - equal: {path: metadata.name, value: steward-ai-operator}
+      - equal: {path: "spec.template.spec.containers[0].image", value: "ghcr.io/steward-grc/steward-ai-operator:v0.1.0"}
+      - equal: {path: spec.template.spec.serviceAccountName, value: steward-ai-operator}
+      - equal: {path: spec.template.spec.automountServiceAccountToken, value: true}
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content: {name: AI_JOB_NAMESPACE, valueFrom: {fieldRef: {fieldPath: metadata.namespace}}}
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content: {name: METRICS_PORT, value: "9090"}
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content: {name: PROBE_PORT, value: "8081"}
+      # The operator runs ai's jobs against ai's own database.
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content: {name: DATABASE_DSN, value: "postgres://app@steward-ai-postgres-primary:5432/ai?sslmode=require"}
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content: {name: PGPASSWORD, valueFrom: {secretKeyRef: {name: steward-ai-postgres-role-app, key: password}}}
+      # Neither a caller nor a callee: no workload identity.
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          content: {name: WORKLOAD_TOKEN_FILE}
+          any: true
+      - notExists: {path: spec.template.spec.volumes}
+  - it: lets ai's operator run, retire and schedule PolicyAIJobs in its namespace only
+    template: charts/ai-operator/templates/role.yaml
+    asserts:
+      - equal:
+          path: rules
+          value:
+            - apiGroups: [ai.steward-grc.com]
+              resources: [policyaijobs]
+              verbs: [get, list, watch, create, delete]
+            - apiGroups: [ai.steward-grc.com]
+              resources: [policyaijobs/status]
+              verbs: [update]
+            - apiGroups: [""]
+              resources: [events]
+              verbs: [create, patch]
+            - apiGroups: [coordination.k8s.io]
+              resources: [leases]
+              verbs: [create]
+            - apiGroups: [coordination.k8s.io]
+              resources: [leases]
+              resourceNames: [steward-ai-operator.ai.steward-grc.com]
+              verbs: [get, update]
+  - it: binds that Role to the ai operator's service account
+    template: charts/ai-operator/templates/rolebinding.yaml
+    asserts:
+      - equal: {path: "subjects[0].name", value: steward-ai-operator}
+  - it: gives ai's operator no Service, since nothing calls it
+    template: charts/ai-operator/templates/service.yaml
+    asserts:
+      - hasDocuments: {count: 0}
   - it: gives delivery the API token and its PdfRender namespace
     template: charts/delivery/templates/deployment.yaml
     asserts:

@@ -2,7 +2,8 @@
 # The chart's install test: a kind cluster with the bring-your-own
 # dependencies in deps.yaml, the umbrella installed from this checkout with
 # the service images built from ci/kind/images.txt, every Deployment Ready,
-# and the gateway's /readyz reporting every dependency up.
+# the gateway's /readyz reporting every dependency up, and the ai and
+# pdf-renderer operators each reconciling a resource of their own.
 #
 #   ci/kind/run.sh
 #
@@ -145,5 +146,66 @@ if kubectl -n "$ns" logs -l app.kubernetes.io/part-of=steward --all-containers -
   exit 1
 fi
 
+# The operators: each must take a resource of its own through to a status,
+# with only the namespaced RBAC the chart gives it.
+await_phase() { # <resource> <name> <phase regex> <seconds>
+  local phase=""
+  for _ in $(seq "$4"); do
+    phase=$(kubectl -n "$ns" get "$1" "$2" -o jsonpath='{.status.phase}' 2>/dev/null || true)
+    if echo "$phase" | grep -qE "^($3)$"; then
+      log "$1/$2 reached phase $phase"
+      return 0
+    fi
+    sleep 1
+  done
+  log "$1/$2 is still in phase '${phase}' after $4s"
+  return 1
+}
+
+log "ai operator: reconcile a PolicyAIJob"
+aijob="ci-reconcile-$(date +%s)"
+kubectl -n "$ns" apply -f - >/dev/null <<EOF
+apiVersion: ai.steward-grc.com/v1alpha1
+kind: PolicyAIJob
+metadata:
+  name: $aijob
+spec:
+  operation: RELATIONSHIP_LEARN
+EOF
+await_phase policyaijobs.ai.steward-grc.com "$aijob" 'Succeeded|Failed' 120
+kubectl -n "$ns" get policyaijobs.ai.steward-grc.com "$aijob"
+kubectl -n "$ns" delete policyaijobs.ai.steward-grc.com "$aijob" --ignore-not-found >/dev/null
+
+log "pdf-renderer operator: reconcile a PdfRender into a render Job"
+render="ci-reconcile-$(date +%s)"
+pv=00000000-0000-4000-8000-000000000000
+kubectl -n "$ns" apply -f - >/dev/null <<EOF
+apiVersion: renders.steward-grc.com/v1alpha1
+kind: PdfRender
+metadata:
+  name: $render
+spec:
+  policyVersionId: $pv
+  fetchURL: http://steward-delivery:8082/internal/policies/$pv/html
+  outputBucket: steward-ci
+  outputKey: artifacts/$pv/$render.pdf
+  sensitivity: standard
+EOF
+await_phase pdfrenders.renders.steward-grc.com "$render" 'Pending|Running|Succeeded|Failed' 60
+kubectl -n "$ns" wait job "$render" --for=create --timeout=60s >/dev/null
+sa=$(kubectl -n "$ns" get job "$render" -o jsonpath='{.spec.template.spec.serviceAccountName}')
+if [ "$sa" != steward-pdf-renderer ]; then
+  log "the render Job runs as '$sa', not steward-pdf-renderer"
+  exit 1
+fi
+log "render Job $render created, running as $sa"
+kubectl -n "$ns" delete pdfrenders.renders.steward-grc.com "$render" --ignore-not-found --wait=false >/dev/null
+
+if kubectl -n "$ns" logs -l 'app.kubernetes.io/name in (steward-ai-operator,steward-pdf-renderer,steward-delivery)' \
+    --all-containers --tail=-1 --prefix 2>/dev/null | grep -E 'is forbidden'; then
+  log "an operator was refused an API call"
+  exit 1
+fi
+
 trap - ERR
-log "PASS: every Deployment Ready, gateway /readyz 200"
+log "PASS: every Deployment Ready, gateway /readyz 200, both operators reconciling"

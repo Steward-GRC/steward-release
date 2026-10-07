@@ -253,6 +253,37 @@ ai:
     enabled: false
   replicaCount: 1
   podAntiAffinity: false
+ai-operator:
+  logging:
+    level: debug
+  postgres:
+    external:
+      enabled: true
+      host: steward-postgres
+      port: 5432
+      database: steward_ai
+      user: ai
+      sslmode: disable
+      passwordSecretName: steward-ci-env
+      passwordSecretKey: ai-password
+  env:
+  - name: RABBITMQ_URL
+    valueFrom:
+      secretKeyRef:
+        name: steward-ci-env
+        key: rabbitmq-url
+  - name: REDIS_ADDR
+    value: steward-valkey:6379
+  - name: AI_SETTINGS_KEY
+    valueFrom:
+      secretKeyRef:
+        name: steward-ci-env
+        key: ai-settings-key
+  - name: AI_EMBED_PROVIDER
+    value: stub
+  - name: AI_GENERATION_STUB
+    value: 'true'
+  replicaCount: 1
 ai-postgres:
   enabled: false
 reporting:
