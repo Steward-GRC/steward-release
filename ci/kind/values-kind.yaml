@@ -313,5 +313,7 @@ pdf-renderer:
     level: debug
   replicaCount: 1
   podAntiAffinity: false
-web:
+web-staff:
+  enabled: false
+web-admin:
   enabled: false

@@ -492,19 +492,66 @@ gateway:
   workloadAuth:
     caller: true
 
-web:
+# steward-web's two apps, each its own image (steward-web's Dockerfile, built
+# with APP=staff or APP=admin) and its own Deployment and Service. Both
+# server-render against the gateway and proxy its /query and /collab/ws, and
+# serve /livez and /readyz on their one HTTP port. Each also needs the
+# browser-facing Kratos public URL (KRATOS_PUBLIC_URL in `env`). Set
+# `ingress` to expose one; docs/install.md.
+web-staff:
   enabled: true
-  aliasName: web
+  aliasName: web-staff
   image:
-    repository: ghcr.io/steward-grc/steward-web
+    repository: ghcr.io/steward-grc/steward-web-staff
     tag: v0.1.0
   replicaCount: 2
   port:
     name: http
     number: 3000
     env: PORT
+  probePort: 3000
+  # The image's own user (steward), not the Go images' nonroot.
+  podSecurityContext:
+    runAsUser: 1001
+    runAsGroup: 1001
   calls:
   - {service: gateway, env: GATEWAY_URL, scheme: http, path: /query}
+  ingress:
+    enabled: false
+    className: ''
+    annotations: {}
+    hosts: []
+    # - host: steward.example.org
+    #   paths:
+    #   - {path: /, pathType: Prefix}
+    tls: []
+
+web-admin:
+  enabled: true
+  aliasName: web-admin
+  image:
+    repository: ghcr.io/steward-grc/steward-web-admin
+    tag: v0.1.0
+  replicaCount: 1
+  port:
+    name: http
+    number: 3000
+    env: PORT
+  probePort: 3000
+  podSecurityContext:
+    runAsUser: 1001
+    runAsGroup: 1001
+  calls:
+  - {service: gateway, env: GATEWAY_URL, scheme: http, path: /query}
+  ingress:
+    enabled: false
+    className: ''
+    annotations: {}
+    hosts: []
+    # - host: steward-admin.example.org
+    #   paths:
+    #   - {path: /, pathType: Prefix}
+    tls: []
 
 # ---------------------------------------------------------------------------
 # Bugs5382/helm-postgres-ha, one instance per data-owning service. `replicas`

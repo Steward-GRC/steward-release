@@ -166,16 +166,57 @@ A service with a second listener declares it in `<service>.extraPorts` (delivery
 port, 8082, which the PDF renderer's Jobs fetch policy HTML from). The chart passes the number to
 the service in the named variable and fails the render if any two ports of one service collide.
 
-The main port's number reaches the service in the variable `<service>.port.env` names:
-`GRPC_PORT` for the Go services, `METRICS_PORT` for pdf-renderer, `PORT` for web, and none for the
+The main port's number reaches the service in the variable `<service>.port.env` names: `GRPC_PORT`
+for the Go services, `METRICS_PORT` for pdf-renderer, `PORT` for the web apps, and none for the
 gateway, whose default listen address already matches its 8080.
+
+## Web apps
+
+steward-web ships two apps, each its own image built from steward-web's Dockerfile (`APP=staff`
+or `APP=admin`): `web-staff` (the staff app, image `steward-web-staff`) and `web-admin` (the
+admin app, image `steward-web-admin`). Each has its own Deployment, Service (port 3000) and
+replica count, and turns off with its own `enabled`. Both get `GATEWAY_URL` from the gateway's
+Service, server-render against it and proxy the browser's `/query` and `/collab/ws` to it. Both
+serve `/livez` and `/readyz` on port 3000; `/readyz` fails while the gateway is unreachable. Each
+also needs the browser-facing Kratos public URL in its `env` (`KRATOS_PUBLIC_URL`). The pods run
+as the image's own user (UID/GID 1001).
+
+Neither app is exposed by default. To expose one, set its `ingress` (namespaced; the cluster's
+ingress controller and IngressClass, or the cluster default when `className` is empty; a TLS
+Secret you create, by name):
+
+```yaml
+web-staff:
+  ingress:
+    enabled: true
+    className: nginx
+    hosts:
+    - host: steward.example.org
+      paths:
+      - {path: /, pathType: Prefix}
+    tls:
+    - {hosts: [steward.example.org], secretName: steward-web-staff-tls}
+web-admin:
+  ingress:
+    enabled: true
+    className: nginx
+    hosts:
+    - host: steward-admin.example.org
+      paths:
+      - {path: /, pathType: Prefix}
+    tls:
+    - {hosts: [steward-admin.example.org], secretName: steward-web-admin-tls}
+```
+
+Each app's origin must also be in the gateway's allowed origins (its `ALLOWED_ORIGINS` setting).
 
 ## Service addresses
 
 The chart gives every service the addresses of the services it calls (`CORE_GRPC_ADDR`,
-`IDENTITY_GRPC_ADDR`, the gateway's `STEWARD_<SERVICE>_ADDR`, web's `GATEWAY_URL`), so a default
-install needs none in `env`. Each alias lists what it calls in `<service>.calls`; the chart builds
-`steward-<callee>:<port>` from the callee's Service name and its port in `global.servicePorts`.
+`IDENTITY_GRPC_ADDR`, the gateway's `STEWARD_<SERVICE>_ADDR`, the web apps' `GATEWAY_URL`), so a
+default install needs none in `env`. Each alias lists what it calls in `<service>.calls`; the chart
+builds `steward-<callee>:<port>` from the callee's Service name and its port in
+`global.servicePorts`.
 Each `global.servicePorts` entry must equal that alias's `port.number`, and the render fails when
 they differ, so a port change sets both. An `env` entry with the same name replaces a derived
 address, for a callee that runs outside the release.
