@@ -232,9 +232,9 @@ or `APP=admin`): `web-staff` (the staff app, image `steward-web-staff`) and `web
 admin app, image `steward-web-admin`). Each has its own Deployment, Service (port 3000) and
 replica count, and turns off with its own `enabled`. Both get `GATEWAY_URL` from the gateway's
 Service, server-render against it and proxy the browser's `/query` and `/collab/ws` to it. Both
-serve `/livez` and `/readyz` on port 3000; `/readyz` fails while the gateway is unreachable. Each
-also needs the browser-facing Kratos public URL in its `env` (`KRATOS_PUBLIC_URL`). The pods run
-as the image's own user (UID/GID 1001).
+serve `/livez` and `/readyz` on port 3000; `/readyz` fails while the gateway is unreachable. Both
+sign in through the gateway's own session endpoint, not Kratos directly, so neither needs a
+Kratos URL of its own. The pods run as the image's own user (UID/GID 1001).
 
 Neither app is exposed by default. To expose one, set its `ingress` (namespaced; the cluster's
 ingress controller and IngressClass, or the cluster default when `className` is empty; a TLS
@@ -276,6 +276,10 @@ that app's Ingress is enabled) sets that header through an ingress-nginx
 own equivalent annotation in that app's `ingress.annotations` instead, with `edgeHeader: false` so
 the two don't collide. Set `gateway.env`'s `MFA_ENFORCE` entry to `always` or `never` to change the
 enforcement itself.
+
+gateway's `COOKIE_INSECURE` (also a `gateway.env` value, default `false`) drops the session
+cookie's Secure flag. Local and kind installs only, for a gateway reached over plain HTTP; never
+set it to `true` in a value this chart ships for anything else.
 
 ## Service addresses
 

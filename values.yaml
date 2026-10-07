@@ -583,13 +583,18 @@ gateway:
   - {service: collab, env: STEWARD_COLLAB_ADDR}
   - {service: ai, env: STEWARD_AI_ADDR}
   - {service: reporting, env: STEWARD_REPORTING_ADDR}
-  # A visible, overridable default equal to gateway's own (internal/config):
+  # Visible, overridable defaults equal to gateway's own (internal/config):
   # MFA_ENFORCE=edge asks a sign-in for a second factor only when it carries
   # the public edge's header (the web apps' Ingress sets it; edgeHeader
   # above). Set to always or never to change the enforcement itself.
+  # COOKIE_INSECURE stays false here; flip it only for a local/kind install
+  # with no TLS in front of the gateway, never in a value this chart ships
+  # for anything else.
   env:
   - name: MFA_ENFORCE
     value: edge
+  - name: COOKIE_INSECURE
+    value: 'false'
   # gateway serves /livez and /readyz on its one HTTP port.
   probePort: 8080
   podDisruptionBudget:
@@ -601,9 +606,9 @@ gateway:
 # steward-web's two apps, each its own image (steward-web's Dockerfile, built
 # with APP=staff or APP=admin) and its own Deployment and Service. Both
 # server-render against the gateway and proxy its /query and /collab/ws, and
-# serve /livez and /readyz on their one HTTP port. Each also needs the
-# browser-facing Kratos public URL (KRATOS_PUBLIC_URL in `env`). Set
-# `ingress` to expose one; docs/install.md.
+# serve /livez and /readyz on their one HTTP port. Both sign in through the
+# gateway's own session endpoint, not Kratos directly, so neither needs a
+# Kratos URL of its own. Set `ingress` to expose one; docs/install.md.
 web-staff:
   enabled: true
   aliasName: web-staff
