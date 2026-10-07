@@ -135,10 +135,6 @@ spec:
             - name: WORKLOAD_TOKEN_FILE
               value: {{ .Values.workloadAuth.tokenPath | quote }}
             {{- end }}
-            {{- if .Values.opaBundle.enabled }}
-            - name: OPA_BUNDLE_PATH
-              value: {{ .Values.opaBundle.mountPath | quote }}
-            {{- end }}
             {{- $overridden := list }}
             {{- range .Values.env }}
             {{- $overridden = append $overridden .name }}
@@ -175,39 +171,16 @@ spec:
           {{- end }}
           {{- $jwksCreds := include "service-chart.jwksCredentials" . }}
           {{- $identity := or .Values.workloadAuth.caller $jwksCreds }}
-          {{- if or $identity .Values.opaBundle.enabled }}
+          {{- if $identity }}
           volumeMounts:
-            {{- if $identity }}
             - name: workload-identity
               mountPath: /var/run/secrets/steward
               readOnly: true
-            {{- end }}
-            {{- if .Values.opaBundle.enabled }}
-            - name: opa-bundle
-              mountPath: {{ .Values.opaBundle.mountPath }}
-              readOnly: true
-            {{- end }}
           {{- end }}
-      {{- if .Values.opaBundle.enabled }}
-      initContainers:
-        - name: opa-bundle
-          image: "{{ .Values.opaBundle.image.repository }}:{{ .Values.opaBundle.image.tag }}"
-          imagePullPolicy: {{ .Values.opaBundle.image.pullPolicy }}
-          command: ["sh", "-c", "cp -r /bundle/. {{ .Values.opaBundle.mountPath }}"]
-          securityContext:
-            allowPrivilegeEscalation: false
-            readOnlyRootFilesystem: true
-            capabilities:
-              drop: ["ALL"]
-          volumeMounts:
-            - name: opa-bundle
-              mountPath: {{ .Values.opaBundle.mountPath }}
-      {{- end }}
       {{- $jwksCreds := include "service-chart.jwksCredentials" . }}
       {{- $identity := or .Values.workloadAuth.caller $jwksCreds }}
-      {{- if or $identity .Values.opaBundle.enabled }}
+      {{- if $identity }}
       volumes:
-        {{- if $identity }}
         - name: workload-identity
           projected:
             sources:
@@ -233,9 +206,4 @@ spec:
                     - key: ca.crt
                       path: kube-ca/ca.crt
               {{- end }}
-        {{- end }}
-        {{- if .Values.opaBundle.enabled }}
-        - name: opa-bundle
-          emptyDir: {}
-        {{- end }}
       {{- end }}

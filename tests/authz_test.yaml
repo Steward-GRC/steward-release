@@ -1,0 +1,26 @@
+suite: umbrella access decisions
+templates:
+  - charts/core/templates/deployment.yaml
+  - charts/ai/templates/deployment.yaml
+  - charts/gateway/templates/deployment.yaml
+tests:
+  # core and the gateway decide access with the steward-authz Go module built
+  # into each image, and ai in its own queries; the chart mounts no bundle.
+  - it: gives core no policy-bundle init container, volume or setting
+    template: charts/core/templates/deployment.yaml
+    asserts: &nobundle
+      - notExists: {path: spec.template.spec.initContainers}
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          content: {name: OPA_BUNDLE_PATH}
+          any: true
+      - notContains:
+          path: spec.template.spec.volumes
+          content: {name: opa-bundle}
+          any: true
+  - it: gives ai no policy-bundle init container, volume or setting
+    template: charts/ai/templates/deployment.yaml
+    asserts: *nobundle
+  - it: gives the gateway no policy-bundle init container, volume or setting
+    template: charts/gateway/templates/deployment.yaml
+    asserts: *nobundle

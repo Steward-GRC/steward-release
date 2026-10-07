@@ -276,9 +276,8 @@ Each `global.servicePorts` entry must equal that alias's `port.number`, and the 
 they differ, so a port change sets both. An `env` entry with the same name replaces a derived
 address, for a callee that runs outside the release.
 
-## The authz policy bundle
+## Access decisions
 
-`core`, `gateway` and `ai` (the services that evaluate access in-process) pull the steward-authz
-Rego policy bundle from an init container image (`<service>.opaBundle.image`) into a shared,
-read-only volume at start-up. Point it at your own bundle image, or steward-authz's published one
-once it ships.
+`core` and `gateway` decide access in-process with the steward-authz Go module, built into each
+image, and `ai` applies the same read rules in its own queries. The chart mounts no policy bundle
+and needs no bundle image.

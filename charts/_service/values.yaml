@@ -164,19 +164,6 @@ workloadAuth:
     bearerFile: /var/run/secrets/steward/jwks/token
   allowedServiceAccounts: []
 
-# The steward-authz Rego policy bundle, for the services that evaluate access
-# in-process (core, gateway, ai). An init container copies the bundle image's
-# `/bundle` into a shared, read-only `emptyDir`; the main container reads it
-# from `mountPath` via `OPA_BUNDLE_PATH`. steward-authz has no server of its
-# own, so this is the only chart wiring it needs.
-opaBundle:
-  enabled: false
-  image:
-    repository: ""
-    tag: ""
-    pullPolicy: IfNotPresent
-  mountPath: /etc/steward/authz-bundle
-
 networkPolicy:
   enabled: true
 

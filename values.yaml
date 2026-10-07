@@ -76,11 +76,6 @@ identity:
 core:
   enabled: true
   aliasName: core
-  opaBundle:
-    enabled: true
-    image:
-      repository: ghcr.io/steward-grc/steward-authz-bundle
-      tag: v0.1.0
   image:
     repository: ghcr.io/steward-grc/steward-core
     tag: v0.1.0
@@ -414,11 +409,6 @@ collab:
 ai:
   enabled: true
   aliasName: ai
-  opaBundle:
-    enabled: true
-    image:
-      repository: ghcr.io/steward-grc/steward-authz-bundle
-      tag: v0.1.0
   image:
     repository: ghcr.io/steward-grc/steward-ai
     tag: v0.1.0
@@ -565,11 +555,6 @@ reporting:
 gateway:
   enabled: true
   aliasName: gateway
-  opaBundle:
-    enabled: true
-    image:
-      repository: ghcr.io/steward-grc/steward-authz-bundle
-      tag: v0.1.0
   image:
     repository: ghcr.io/steward-grc/steward-gateway
     tag: v0.1.0
