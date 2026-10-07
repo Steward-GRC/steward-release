@@ -14,6 +14,11 @@ authentication wired in from the start, and health-checked probes.
   instance, replica count set by you (1 by default, a 3-member quorum in
   [`values-ha-example.yaml`](values-ha-example.yaml)); bring your own instead with
   [`values-byo-postgres-example.yaml`](values-byo-postgres-example.yaml).
+- **Shared clusters:** default values install no cluster-scoped object (no CRDs, ClusterRoles,
+  webhooks or ClusterIssuers); CRDs are pre-installed or opted in with `crds.install`, and managed
+  Postgres TLS can use the cluster's existing cert-manager issuer
+  ([`values-shared-cluster-example.yaml`](values-shared-cluster-example.yaml)). See
+  [docs/install.md](docs/install.md).
 - **Service-to-service auth:** calls carry a projected, audience-scoped service-account token,
   verified against the cluster's OIDC JWKS with a per-service caller allow-list, and a
   `NetworkPolicy` in depth. Not every service verifies tokens yet; see

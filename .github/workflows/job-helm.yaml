@@ -86,6 +86,23 @@ jobs:
       - name: helm template (high availability example)
         if: hashFiles('values-ha-example.yaml') != ''
         run: helm template steward "${CHART_DIR:-.}" -f values.yaml -f values-ha-example.yaml ${EXTRA_VALUES:-} --namespace steward > /tmp/rendered-ha.yaml
+      - name: No cluster-scoped objects by default
+        if: hashFiles('Chart.yaml') != ''
+        run: |
+          set -euo pipefail
+          for extra in "" "-f values-ha-example.yaml" "-f values-shared-cluster-example.yaml"; do
+            # shellcheck disable=SC2086
+            helm template steward "${CHART_DIR:-.}" -f values.yaml ${extra} ${EXTRA_VALUES:-} --include-crds --namespace steward \
+              | scripts/check-cluster-scoped.sh
+          done
+      - name: Opt-in cluster-scoped objects (crds.install)
+        if: hashFiles('Chart.yaml') != ''
+        run: |
+          set -euo pipefail
+          helm template steward "${CHART_DIR:-.}" -f values.yaml ${EXTRA_VALUES:-} --set crds.install=true --include-crds --namespace steward \
+            | scripts/check-cluster-scoped.sh \
+                CustomResourceDefinition/pdfrenders.renders.steward-grc.com \
+                CustomResourceDefinition/policyaijobs.ai.steward-grc.com
       - name: kubeconform (defaults)
         if: hashFiles('Chart.yaml') != ''
         run: kubeconform -strict -summary -kubernetes-version 1.29.0 /tmp/rendered-default.yaml

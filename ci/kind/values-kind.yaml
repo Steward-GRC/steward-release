@@ -10,6 +10,10 @@
 # - opaBundle is off: no service reads OPA_BUNDLE_PATH; each builds the
 #   steward-authz bundle into its own image.
 # - Images: run.sh sets <alias>.image.repository/tag from ci/kind/images.txt.
+# - The test cluster is this release's alone, so it opts in to installing the
+#   CRDs.
+crds:
+  install: true
 identity:
   logging:
     level: debug
