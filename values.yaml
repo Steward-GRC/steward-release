@@ -42,6 +42,8 @@ identity:
   calls:
   - {service: core, env: CORE_GRPC_ADDR}
   - {service: identity, env: IDENTITY_GRPC_ADDR}
+  - {service: workflow, env: WORKFLOW_GRPC_ADDR}
+  - {service: obligations, env: OBLIGATIONS_GRPC_ADDR}
   podDisruptionBudget:
     enabled: true
     minAvailable: 1
@@ -148,6 +150,7 @@ workflow:
     authMode: enabled
     allowedServiceAccounts:
     - gateway
+    - identity
 
 obligations:
   enabled: true
@@ -183,6 +186,7 @@ obligations:
     authMode: enabled
     allowedServiceAccounts:
     - gateway
+    - identity
 
 audit:
   enabled: true
