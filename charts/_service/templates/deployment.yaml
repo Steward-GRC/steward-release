@@ -84,8 +84,10 @@ spec:
             - name: PROBE_PORT
               value: {{ .Values.probePort | quote }}
             {{- end }}
-            - name: PORT
-              value: {{ .Values.port.number | quote }}
+            {{- with .Values.port.env }}
+            - name: {{ . }}
+              value: {{ $.Values.port.number | quote }}
+            {{- end }}
             {{- range .Values.extraPorts }}
             {{- if .env }}
             - name: {{ .env }}
@@ -94,17 +96,15 @@ spec:
             {{- end }}
             {{- if .Values.postgres.enabled }}
             {{- $pg := ternary .Values.postgres.external .Values.postgres .Values.postgres.external.enabled }}
-            - name: DATABASE_HOST
-              value: {{ required "postgres host is required when postgres.enabled" $pg.host | quote }}
-            - name: DATABASE_PORT
-              value: {{ $pg.port | quote }}
-            - name: DATABASE_NAME
-              value: {{ required "postgres database is required when postgres.enabled" $pg.database | quote }}
-            - name: DATABASE_USER
-              value: {{ required "postgres user is required when postgres.enabled" $pg.user | quote }}
-            - name: DATABASE_SSLMODE
-              value: {{ $pg.sslmode | quote }}
-            - name: DATABASE_PASSWORD
+            - name: DATABASE_DSN
+              value: {{ printf "postgres://%s@%s:%v/%s?sslmode=%s"
+                  (required "postgres user is required when postgres.enabled" $pg.user | urlquery)
+                  (required "postgres host is required when postgres.enabled" $pg.host)
+                  $pg.port
+                  (required "postgres database is required when postgres.enabled" $pg.database | urlquery)
+                  ($pg.sslmode | urlquery) | quote }}
+            {{- /* The pgx pool and the migration driver both read PGPASSWORD, so the password never goes into the URL. */}}
+            - name: PGPASSWORD
               valueFrom:
                 secretKeyRef:
                   name: {{ required "postgres passwordSecretName is required when postgres.enabled" $pg.passwordSecretName }}

@@ -69,3 +69,37 @@ tests:
     asserts:
       - failedTemplate:
           errorPattern: "container port name \"probe\" is used more than once"
+  - it: passes the main port in GRPC_PORT by default
+    template: deployment.yaml
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content: {name: GRPC_PORT, value: "9090"}
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          content: {name: PORT, value: "9090"}
+  - it: passes the main port in the variable port.env names
+    template: deployment.yaml
+    set:
+      port: {name: http, number: 3000, env: PORT}
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content: {name: PORT, value: "3000"}
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          any: true
+          content: {name: GRPC_PORT}
+  - it: passes no port variable when port.env is empty
+    template: deployment.yaml
+    set:
+      port: {name: http, number: 8080, env: ""}
+    asserts:
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          any: true
+          content: {name: GRPC_PORT}
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          any: true
+          content: {name: PORT}

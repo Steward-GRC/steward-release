@@ -12,9 +12,13 @@ image:
 replicaCount: 1
 podAntiAffinity: false
 
+# The main listener. `env` names the variable that passes the number to the
+# service (the Go services read GRPC_PORT); empty passes none, for a service
+# whose own default already matches.
 port:
   name: grpc
   number: 9090
+  env: GRPC_PORT
 # Health probes. `http` (the default) GETs /readyz and /livez on probePort;
 # set probePort to port.number for a service that serves them on its main
 # HTTP port (rendered once, never as a duplicate port). `grpc` uses the
@@ -82,10 +86,10 @@ env: []
 baseEnv: []
 
 # Set by the umbrella for every service that owns a database. The chart
-# assembles DATABASE_HOST/PORT/NAME/USER/SSLMODE as plain values and reads
-# DATABASE_PASSWORD from an existing Secret (helm-postgres-ha's per-role
-# password Secret, "<cluster>-role-<role>", or the operator's own Secret for
-# a bring-your-own instance). `external.enabled` switches to that bring-your-own
+# builds DATABASE_DSN (postgres://<user>@<host>:<port>/<database>?sslmode=...)
+# as a plain value and passes the password as PGPASSWORD from an existing
+# Secret (helm-postgres-ha's per-role password Secret, "<cluster>-role-<role>",
+# or the operator's own Secret for a bring-your-own instance). `external.enabled` switches to that bring-your-own
 # instance; the chart never ships a plaintext default for either path.
 postgres:
   enabled: false

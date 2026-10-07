@@ -4,9 +4,9 @@
 #
 # - Bring-your-own Postgres: one pgvector instance (ci/kind/deps.yaml) with a
 #   database and role per service, steward_<alias>/<alias>.
-# - Each service's own settings (DATABASE_DSN, GRPC_PORT, the addresses of
-#   the services it calls, its keys) come in through `env`: the chart's own
-#   DATABASE_HOST/PORT/... and PORT are not what the services read yet.
+# - The chart sets DATABASE_DSN, PGPASSWORD and GRPC_PORT from the values
+#   below; each service's other settings (the addresses of the services it
+#   calls, its keys) come in through `env`.
 # - opaBundle is off: no service reads OPA_BUNDLE_PATH; each builds the
 #   steward-authz bundle into its own image.
 # - Images: run.sh sets <alias>.image.repository/tag from ci/kind/images.txt.
@@ -24,18 +24,11 @@ identity:
       passwordSecretName: steward-ci-env
       passwordSecretKey: identity-password
   env:
-  - name: DATABASE_DSN
-    valueFrom:
-      secretKeyRef:
-        name: steward-ci-env
-        key: identity-dsn
   - name: RABBITMQ_URL
     valueFrom:
       secretKeyRef:
         name: steward-ci-env
         key: rabbitmq-url
-  - name: GRPC_PORT
-    value: '9090'
   - name: KRATOS_ADMIN_URL
     value: http://steward-kratos:4434
   - name: CORE_GRPC_ADDR
@@ -73,18 +66,11 @@ core:
       passwordSecretName: steward-ci-env
       passwordSecretKey: core-password
   env:
-  - name: DATABASE_DSN
-    valueFrom:
-      secretKeyRef:
-        name: steward-ci-env
-        key: core-dsn
   - name: RABBITMQ_URL
     valueFrom:
       secretKeyRef:
         name: steward-ci-env
         key: rabbitmq-url
-  - name: GRPC_PORT
-    value: '9091'
   - name: CORE_SETTINGS_KEY
     valueFrom:
       secretKeyRef:
@@ -112,18 +98,11 @@ workflow:
       passwordSecretName: steward-ci-env
       passwordSecretKey: workflow-password
   env:
-  - name: DATABASE_DSN
-    valueFrom:
-      secretKeyRef:
-        name: steward-ci-env
-        key: workflow-dsn
   - name: RABBITMQ_URL
     valueFrom:
       secretKeyRef:
         name: steward-ci-env
         key: rabbitmq-url
-  - name: GRPC_PORT
-    value: '9092'
   - name: IDENTITY_GRPC_ADDR
     value: steward-identity:9090
   - name: CORE_GRPC_ADDR
@@ -146,18 +125,11 @@ obligations:
       passwordSecretName: steward-ci-env
       passwordSecretKey: obligations-password
   env:
-  - name: DATABASE_DSN
-    valueFrom:
-      secretKeyRef:
-        name: steward-ci-env
-        key: obligations-dsn
   - name: RABBITMQ_URL
     valueFrom:
       secretKeyRef:
         name: steward-ci-env
         key: rabbitmq-url
-  - name: GRPC_PORT
-    value: '9093'
   - name: IDENTITY_GRPC_ADDR
     value: steward-identity:9090
   - name: CORE_GRPC_ADDR
@@ -190,18 +162,11 @@ audit:
       passwordSecretName: steward-ci-env
       passwordSecretKey: audit-password
   env:
-  - name: DATABASE_DSN
-    valueFrom:
-      secretKeyRef:
-        name: steward-ci-env
-        key: audit-dsn
   - name: RABBITMQ_URL
     valueFrom:
       secretKeyRef:
         name: steward-ci-env
         key: rabbitmq-url
-  - name: GRPC_PORT
-    value: '9094'
   replicaCount: 1
   podAntiAffinity: false
 audit-postgres:
@@ -220,18 +185,11 @@ delivery:
       passwordSecretName: steward-ci-env
       passwordSecretKey: delivery-password
   env:
-  - name: DATABASE_DSN
-    valueFrom:
-      secretKeyRef:
-        name: steward-ci-env
-        key: delivery-dsn
   - name: RABBITMQ_URL
     valueFrom:
       secretKeyRef:
         name: steward-ci-env
         key: rabbitmq-url
-  - name: GRPC_PORT
-    value: '9095'
   - name: CORE_GRPC_ADDR
     value: steward-core:9091
   replicaCount: 1
@@ -252,18 +210,11 @@ collab:
       passwordSecretName: steward-ci-env
       passwordSecretKey: collab-password
   env:
-  - name: DATABASE_DSN
-    valueFrom:
-      secretKeyRef:
-        name: steward-ci-env
-        key: collab-dsn
   - name: RABBITMQ_URL
     valueFrom:
       secretKeyRef:
         name: steward-ci-env
         key: rabbitmq-url
-  - name: GRPC_PORT
-    value: '9096'
   - name: COLLAB_TOKEN_SECRET
     valueFrom:
       secretKeyRef:
@@ -293,18 +244,11 @@ ai:
       passwordSecretName: steward-ci-env
       passwordSecretKey: ai-password
   env:
-  - name: DATABASE_DSN
-    valueFrom:
-      secretKeyRef:
-        name: steward-ci-env
-        key: ai-dsn
   - name: RABBITMQ_URL
     valueFrom:
       secretKeyRef:
         name: steward-ci-env
         key: rabbitmq-url
-  - name: GRPC_PORT
-    value: '9097'
   - name: REDIS_ADDR
     value: steward-valkey:6379
   - name: AI_SETTINGS_KEY
@@ -336,18 +280,11 @@ reporting:
       passwordSecretName: steward-ci-env
       passwordSecretKey: reporting-password
   env:
-  - name: DATABASE_DSN
-    valueFrom:
-      secretKeyRef:
-        name: steward-ci-env
-        key: reporting-dsn
   - name: RABBITMQ_URL
     valueFrom:
       secretKeyRef:
         name: steward-ci-env
         key: rabbitmq-url
-  - name: GRPC_PORT
-    value: '9098'
   - name: IDENTITY_GRPC_ADDR
     value: steward-identity:9090
   replicaCount: 1

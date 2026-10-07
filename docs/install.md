@@ -67,6 +67,11 @@ from the Secret `Bugs5382/helm-postgres-ha` generates, and a bring-your-own inst
 comes from the Secret you name in `passwordSecretName`. Leaving either unset fails the template
 render rather than falling back to anything.
 
+Each service gets its database as `DATABASE_DSN`
+(`postgres://<user>@<host>:<port>/<database>?sslmode=<sslmode>`, built from its `postgres`
+values) and the password as `PGPASSWORD`, read from that Secret; the password never appears in
+the connection URL.
+
 ## High availability
 
 [`values-ha-example.yaml`](../values-ha-example.yaml) raises every service to multiple replicas and
@@ -123,6 +128,10 @@ Each service alias picks its probe type in `values.yaml` (`<service>.probe.type`
 A service with a second listener declares it in `<service>.extraPorts` (delivery's internal HTTP
 port, 8082, which the PDF renderer's Jobs fetch policy HTML from). The chart passes the number to
 the service in the named variable and fails the render if any two ports of one service collide.
+
+The main port's number reaches the service in the variable `<service>.port.env` names:
+`GRPC_PORT` for the Go services, `METRICS_PORT` for pdf-renderer, `PORT` for web, and none for the
+gateway, whose default listen address already matches its 8080.
 
 ## The authz policy bundle
 

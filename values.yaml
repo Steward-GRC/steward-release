@@ -257,6 +257,7 @@ pdf-renderer:
   port:
     name: grpc
     number: 9099
+    env: METRICS_PORT
   # Not a caller itself: the operator gives each render Job its own
   # steward-audience token for the fetch from delivery.
   #
@@ -433,6 +434,8 @@ gateway:
   port:
     name: http
     number: 8080
+    # GATEWAY_HTTP_ADDR's default (:8080) already matches.
+    env: ''
   # gateway serves /livez and /readyz on its one HTTP port.
   probePort: 8080
   podDisruptionBudget:
@@ -451,6 +454,7 @@ web:
   port:
     name: http
     number: 3000
+    env: PORT
 
 # ---------------------------------------------------------------------------
 # Bugs5382/helm-postgres-ha, one instance per data-owning service. `replicas`

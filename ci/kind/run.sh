@@ -76,11 +76,11 @@ else
   rand() { openssl rand -hex "${1:-24}"; }
   pg_init="$work/init.sql"
   : > "$pg_init"
-  dsn_args=()
+  pw_args=()
   for s in identity core workflow obligations audit delivery collab ai reporting; do
     pw=$(rand)
     echo "CREATE ROLE $s LOGIN PASSWORD '$pw'; CREATE DATABASE steward_$s OWNER $s;" >> "$pg_init"
-    dsn_args+=(--from-literal="$s-password=$pw" --from-literal="$s-dsn=postgres://$s:$pw@steward-postgres:5432/steward_$s?sslmode=disable")
+    pw_args+=(--from-literal="$s-password=$pw")
   done
   echo '\connect steward_ai' >> "$pg_init"
   echo 'CREATE EXTENSION IF NOT EXISTS vector;' >> "$pg_init"
@@ -93,7 +93,7 @@ else
     --from-literal=kratos-cookie-secret="[\"$(rand 32)\"]" \
     --from-literal=kratos-cipher-secret="[\"$(rand 16)\"]" \
     --dry-run=client -o yaml | kubectl apply -f - >/dev/null
-  kubectl -n "$ns" create secret generic steward-ci-env "${dsn_args[@]}" \
+  kubectl -n "$ns" create secret generic steward-ci-env "${pw_args[@]}" \
     --from-literal=rabbitmq-url="amqp://steward:$rabbit_pw@steward-rabbitmq:5672/" \
     --from-literal=core-settings-key="$(openssl rand -base64 32)" \
     --from-literal=ai-settings-key="$(openssl rand -base64 32)" \
