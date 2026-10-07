@@ -281,3 +281,12 @@ address, for a callee that runs outside the release.
 `core` and `gateway` decide access in-process with the steward-authz Go module, built into each
 image, and `ai` applies the same read rules in its own queries. The chart mounts no policy bundle
 and needs no bundle image.
+
+## Who can work officer cases
+
+reporting's `REPORTING_OFFICER_GROUPS` (a value in `values.yaml`, empty by default) names who can
+open and work reporting cases: a comma-separated list of local platform group ids or identity
+provider group names. Find a platform group's id on the admin app's platform groups page (backed
+by identity's `ListGroups`), or use an identity provider group name already mapped through an
+existing group-claim mapping. Leave it empty and reporting logs a warning at startup: nobody can
+open a case until it's set.

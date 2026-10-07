@@ -530,6 +530,14 @@ reporting:
     number: 9098
   calls:
   - {service: identity, env: IDENTITY_GRPC_ADDR}
+  # The local platform group ids (the admin app's platform groups page,
+  # backed by identity's ListGroups) or identity provider group names whose
+  # members work officer cases, comma-separated. Empty means nobody can:
+  # reporting logs a warning and case assignment stays closed
+  # (docs/install.md).
+  env:
+  - name: REPORTING_OFFICER_GROUPS
+    value: ''
   postgres:
     enabled: true
     host: steward-reporting-postgres-primary
