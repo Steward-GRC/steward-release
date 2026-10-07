@@ -1,0 +1,12 @@
+{{- /*
+The addresses the services get for each other (<alias>.calls) take their
+port from global.servicePorts. Each entry must match that alias's own
+port.number, or the callers would dial a port nothing listens on.
+*/ -}}
+{{- range $alias, $port := .Values.global.servicePorts }}
+{{- $svc := index $.Values $alias | default dict }}
+{{- $actual := ($svc.port | default dict).number }}
+{{- if ne (int $port) (int $actual) }}
+{{- fail (printf "global.servicePorts.%s is %v but %s.port.number is %v: set both to the same port" $alias $port $alias $actual) }}
+{{- end }}
+{{- end }}

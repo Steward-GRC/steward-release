@@ -19,10 +19,11 @@ helm upgrade steward . -f values.yaml [-f values-ha-example.yaml | -f values-byo
   migration, not an upgrade — coordinate it with `steward-migrate` once that tool exists.
 - **Migrations:** each service's own baseline migration runs itself, inside its own image, on
   start-up. This chart has no migration Job of its own.
-- **Workload auth:** flipping a service's `workloadAuth.authMode` from `disabled` to `enabled` (the
-  planned path for `core`, once every caller presents a token) is itself an upgrade: do it only
-  after confirming every service in that service's `allowedServiceAccounts` list already sends a
-  token (check each caller's own `workloadAuth.caller: true` is live first).
+- **Workload auth:** every callee runs with `workloadAuth.authMode: enabled` by default. Upgrading
+  from a release that ran a service with `authMode: disabled` (core did) is itself an upgrade
+  step: every service in its `allowedServiceAccounts` list must already send a token (check each
+  caller's own `workloadAuth.caller: true` is live first), so upgrade the callers and the callee in
+  the same release.
 - **CRDs:** the chart installs its CustomResourceDefinitions only with `crds.install: true`, and
   then on first install only; Helm never upgrades or deletes them. When an upgrade bumps a pin in
   `scripts/crds-upstream.txt`, apply the new CRDs first (as cluster-admin, either way): `kubectl apply --server-side -f charts/_pdf-renderer-crds/crds/ -f

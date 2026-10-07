@@ -155,12 +155,12 @@ the helm-postgres-ha README for the DNS names it needs).
 
 Each service alias picks its probe type in `values.yaml` (`<service>.probe.type`):
 
-- `http` (the default): `GET /readyz` and `/livez` on `<service>.probePort` (8081). A service that
-  serves them on its main HTTP port sets `probePort` to that port (gateway does), and the chart
-  renders the port once.
+- `http` (the default): `GET /readyz` and `/livez` on `<service>.probePort` (8081; 8080 for audit).
+  A service that serves them on its main HTTP port sets `probePort` to that port (gateway does), and
+  the chart renders the port once.
 - `grpc`: the kubelet's native `grpc.health.v1` probe on the service's main port, for a service with
-  no HTTP listener (audit). Your NetworkPolicy implementation must let the node reach pod ports,
-  which every common one does by default.
+  no HTTP listener (none of the defaults today). Your NetworkPolicy implementation must let the
+  node reach pod ports, which every common one does by default.
 
 A service with a second listener declares it in `<service>.extraPorts` (delivery's internal HTTP
 port, 8082, which the PDF renderer's Jobs fetch policy HTML from). The chart passes the number to
@@ -169,6 +169,16 @@ the service in the named variable and fails the render if any two ports of one s
 The main port's number reaches the service in the variable `<service>.port.env` names:
 `GRPC_PORT` for the Go services, `METRICS_PORT` for pdf-renderer, `PORT` for web, and none for the
 gateway, whose default listen address already matches its 8080.
+
+## Service addresses
+
+The chart gives every service the addresses of the services it calls (`CORE_GRPC_ADDR`,
+`IDENTITY_GRPC_ADDR`, the gateway's `STEWARD_<SERVICE>_ADDR`, web's `GATEWAY_URL`), so a default
+install needs none in `env`. Each alias lists what it calls in `<service>.calls`; the chart builds
+`steward-<callee>:<port>` from the callee's Service name and its port in `global.servicePorts`.
+Each `global.servicePorts` entry must equal that alias's `port.number`, and the render fails when
+they differ, so a port change sets both. An `env` entry with the same name replaces a derived
+address, for a callee that runs outside the release.
 
 ## The authz policy bundle
 

@@ -5,8 +5,9 @@
 # - Bring-your-own Postgres: one pgvector instance (ci/kind/deps.yaml) with a
 #   database and role per service, steward_<alias>/<alias>.
 # - The chart sets DATABASE_DSN, PGPASSWORD and GRPC_PORT from the values
-#   below; each service's other settings (the addresses of the services it
-#   calls, its keys) come in through `env`.
+#   below and the addresses of the services each one calls from values.yaml;
+#   each service's other settings (its keys, its dependencies) come in
+#   through `env`.
 # - opaBundle is off: no service reads OPA_BUNDLE_PATH; each builds the
 #   steward-authz bundle into its own image.
 # - Images: run.sh sets <alias>.image.repository/tag from ci/kind/images.txt.
@@ -35,8 +36,6 @@ identity:
         key: rabbitmq-url
   - name: KRATOS_ADMIN_URL
     value: http://steward-kratos:4434
-  - name: CORE_GRPC_ADDR
-    value: steward-core:9091
   - name: REDIS_ADDR
     value: steward-valkey:6379
   - name: TOTP_ENC_KEY
@@ -107,10 +106,6 @@ workflow:
       secretKeyRef:
         name: steward-ci-env
         key: rabbitmq-url
-  - name: IDENTITY_GRPC_ADDR
-    value: steward-identity:9090
-  - name: CORE_GRPC_ADDR
-    value: steward-core:9091
   replicaCount: 1
   podAntiAffinity: false
 workflow-postgres:
@@ -134,10 +129,6 @@ obligations:
       secretKeyRef:
         name: steward-ci-env
         key: rabbitmq-url
-  - name: IDENTITY_GRPC_ADDR
-    value: steward-identity:9090
-  - name: CORE_GRPC_ADDR
-    value: steward-core:9091
   - name: REDIS_ADDR
     value: steward-valkey:6379
   - name: SMTP_HOST
@@ -194,8 +185,6 @@ delivery:
       secretKeyRef:
         name: steward-ci-env
         key: rabbitmq-url
-  - name: CORE_GRPC_ADDR
-    value: steward-core:9091
   replicaCount: 1
   podAntiAffinity: false
 delivery-postgres:
@@ -224,10 +213,6 @@ collab:
       secretKeyRef:
         name: steward-ci-env
         key: collab-token-secret
-  - name: CORE_GRPC_ADDR
-    value: steward-core:9091
-  - name: IDENTITY_GRPC_ADDR
-    value: steward-identity:9090
   - name: HTTP_PORT
     value: '8081'
   replicaCount: 1
@@ -289,8 +274,6 @@ reporting:
       secretKeyRef:
         name: steward-ci-env
         key: rabbitmq-url
-  - name: IDENTITY_GRPC_ADDR
-    value: steward-identity:9090
   replicaCount: 1
   podAntiAffinity: false
 reporting-postgres:
@@ -323,24 +306,6 @@ gateway:
         key: setup-token
   - name: COLLAB_WS_UPSTREAM
     value: steward-collab:8081
-  - name: STEWARD_IDENTITY_ADDR
-    value: steward-identity:9090
-  - name: STEWARD_CORE_ADDR
-    value: steward-core:9091
-  - name: STEWARD_WORKFLOW_ADDR
-    value: steward-workflow:9092
-  - name: STEWARD_OBLIGATIONS_ADDR
-    value: steward-obligations:9093
-  - name: STEWARD_AUDIT_ADDR
-    value: steward-audit:9094
-  - name: STEWARD_DELIVERY_ADDR
-    value: steward-delivery:9095
-  - name: STEWARD_COLLAB_ADDR
-    value: steward-collab:9096
-  - name: STEWARD_AI_ADDR
-    value: steward-ai:9097
-  - name: STEWARD_REPORTING_ADDR
-    value: steward-reporting:9098
   replicaCount: 1
   podAntiAffinity: false
 pdf-renderer:

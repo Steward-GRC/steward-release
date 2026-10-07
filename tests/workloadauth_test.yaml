@@ -11,44 +11,99 @@ templates:
   - charts/ai/templates/deployment.yaml
   - charts/gateway/templates/deployment.yaml
   - charts/pdf-renderer/templates/deployment.yaml
+release:
+  namespace: steward
 tests:
-  # identity, workflow, obligations and audit have no workload-auth library
-  # yet; the chart must not imply they verify callers.
-  - it: wires no workload-auth settings into identity, workflow, obligations, audit or pdf-renderer
+  # Every callee runs enabled: the verification block, never WORKLOAD_AUTH.
+  - it: gives identity the verification block, its caller list and a caller token
     template: charts/identity/templates/deployment.yaml
-    asserts: &none
-      - notContains: {path: "spec.template.spec.containers[0].env", content: {name: WORKLOAD_AUTH}, any: true}
-      - notContains: {path: "spec.template.spec.containers[0].env", content: {name: WORKLOAD_AUDIENCE}, any: true}
-      - notContains: {path: "spec.template.spec.containers[0].env", content: {name: WORKLOAD_OIDC_ISSUER}, any: true}
-      - notContains: {path: "spec.template.spec.containers[0].env", content: {name: WORKLOAD_OIDC_JWKS_URL}, any: true}
-      - notContains: {path: "spec.template.spec.containers[0].env", content: {name: WORKLOAD_OIDC_CA_FILE}, any: true}
-      - notContains: {path: "spec.template.spec.containers[0].env", content: {name: WORKLOAD_OIDC_BEARER_FILE}, any: true}
-      - notContains: {path: "spec.template.spec.containers[0].env", content: {name: WORKLOAD_ALLOWED_SERVICEACCOUNTS}, any: true}
-      - notContains: {path: "spec.template.spec.containers[0].env", content: {name: WORKLOAD_TOKEN_FILE}, any: true}
-  - it: wires nothing into workflow
+    asserts:
+      - notContains: &noDisabled {path: "spec.template.spec.containers[0].env", content: {name: WORKLOAD_AUTH}, any: true}
+      - contains: &issuer {path: "spec.template.spec.containers[0].env", content: {name: WORKLOAD_OIDC_ISSUER}, any: true}
+      - contains: &caFile {path: "spec.template.spec.containers[0].env", content: {name: WORKLOAD_OIDC_CA_FILE, value: /var/run/secrets/steward/kube-ca/ca.crt}}
+      - contains: &bearerFile {path: "spec.template.spec.containers[0].env", content: {name: WORKLOAD_OIDC_BEARER_FILE, value: /var/run/secrets/steward/jwks/token}}
+      - contains: &tokenFile {path: "spec.template.spec.containers[0].env", content: {name: WORKLOAD_TOKEN_FILE, value: /var/run/secrets/steward/token}}
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: WORKLOAD_ALLOWED_SERVICEACCOUNTS
+            value: steward/steward-gateway,steward/steward-workflow,steward/steward-obligations,steward/steward-reporting,steward/steward-collab,steward/steward-identity
+      - equal: &callerAndJwksVolume
+          path: spec.template.spec.volumes[0]
+          value:
+            name: workload-identity
+            projected:
+              sources:
+                - serviceAccountToken:
+                    path: token
+                    audience: steward
+                    expirationSeconds: 3600
+                - serviceAccountToken:
+                    path: jwks/token
+                    expirationSeconds: 3600
+                - configMap:
+                    name: kube-root-ca.crt
+                    items:
+                      - key: ca.crt
+                        path: kube-ca/ca.crt
+  - it: gives workflow the verification block, gateway as its caller and a caller token
     template: charts/workflow/templates/deployment.yaml
-    asserts: *none
-  - it: wires nothing into obligations
+    asserts:
+      - notContains: *noDisabled
+      - contains: *issuer
+      - contains: *caFile
+      - contains: *bearerFile
+      - contains: *tokenFile
+      - contains: &gatewayOnly
+          path: spec.template.spec.containers[0].env
+          content: {name: WORKLOAD_ALLOWED_SERVICEACCOUNTS, value: steward/steward-gateway}
+      - equal: *callerAndJwksVolume
+  - it: gives obligations the verification block, gateway as its caller and a caller token
     template: charts/obligations/templates/deployment.yaml
-    asserts: *none
-  - it: wires nothing into audit
+    asserts:
+      - notContains: *noDisabled
+      - contains: *issuer
+      - contains: *caFile
+      - contains: *bearerFile
+      - contains: *tokenFile
+      - contains: *gatewayOnly
+      - equal: *callerAndJwksVolume
+  - it: gives audit the verification block and gateway as its caller, with no caller token
     template: charts/audit/templates/deployment.yaml
-    asserts: *none
-  - it: wires nothing into pdf-renderer
-    template: charts/pdf-renderer/templates/deployment.yaml
-    asserts: *none
-  - it: gives core (disabled by default) WORKLOAD_AUTH=disabled and no verification block
+    asserts:
+      - notContains: *noDisabled
+      - contains: *issuer
+      - contains: *caFile
+      - contains: *bearerFile
+      - contains: *gatewayOnly
+      - notContains: {path: "spec.template.spec.containers[0].env", content: {name: WORKLOAD_TOKEN_FILE}, any: true}
+      - equal:
+          path: spec.template.spec.volumes[0].projected.sources
+          value:
+            - serviceAccountToken:
+                path: jwks/token
+                expirationSeconds: 3600
+            - configMap:
+                name: kube-root-ca.crt
+                items:
+                  - key: ca.crt
+                    path: kube-ca/ca.crt
+  - it: runs core enabled, admitting workflow and obligations
     template: charts/core/templates/deployment.yaml
     asserts:
-      - contains: {path: "spec.template.spec.containers[0].env", content: {name: WORKLOAD_AUTH, value: disabled}}
-      - notContains: {path: "spec.template.spec.containers[0].env", content: {name: WORKLOAD_OIDC_ISSUER}, any: true}
-      - notContains: {path: "spec.template.spec.containers[0].env", content: {name: WORKLOAD_ALLOWED_SERVICEACCOUNTS}, any: true}
-      - contains: {path: "spec.template.spec.containers[0].env", content: {name: WORKLOAD_TOKEN_FILE}, any: true}
+      - notContains: *noDisabled
+      - contains: *issuer
+      - contains: *tokenFile
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: WORKLOAD_ALLOWED_SERVICEACCOUNTS
+            value: steward/steward-gateway,steward/steward-workflow,steward/steward-delivery,steward/steward-collab,steward/steward-obligations,steward/steward-identity
   - it: gives delivery the verification block and no WORKLOAD_AUTH
     template: charts/delivery/templates/deployment.yaml
     asserts: &enabled
-      - notContains: {path: "spec.template.spec.containers[0].env", content: {name: WORKLOAD_AUTH}, any: true}
-      - contains: {path: "spec.template.spec.containers[0].env", content: {name: WORKLOAD_OIDC_ISSUER}, any: true}
+      - notContains: *noDisabled
+      - contains: *issuer
       - contains: {path: "spec.template.spec.containers[0].env", content: {name: WORKLOAD_ALLOWED_SERVICEACCOUNTS}, any: true}
   - it: gives reporting the verification block
     template: charts/reporting/templates/deployment.yaml
@@ -62,6 +117,13 @@ tests:
   - it: makes gateway a caller only
     template: charts/gateway/templates/deployment.yaml
     asserts:
-      - contains: {path: "spec.template.spec.containers[0].env", content: {name: WORKLOAD_TOKEN_FILE, value: /var/run/secrets/steward/token}}
-      - notContains: {path: "spec.template.spec.containers[0].env", content: {name: WORKLOAD_AUTH}, any: true}
+      - contains: *tokenFile
+      - notContains: *noDisabled
       - notContains: {path: "spec.template.spec.containers[0].env", content: {name: WORKLOAD_OIDC_ISSUER}, any: true}
+  # Not a callee or a caller itself: its render Jobs get their own token.
+  - it: wires nothing into pdf-renderer
+    template: charts/pdf-renderer/templates/deployment.yaml
+    asserts:
+      - notContains: *noDisabled
+      - notContains: {path: "spec.template.spec.containers[0].env", content: {name: WORKLOAD_OIDC_ISSUER}, any: true}
+      - notContains: {path: "spec.template.spec.containers[0].env", content: {name: WORKLOAD_TOKEN_FILE}, any: true}

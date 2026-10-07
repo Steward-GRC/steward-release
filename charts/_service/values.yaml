@@ -77,6 +77,13 @@ rbac:
 # PDF renderer's Jobs). No RBAC, no token automount.
 extraServiceAccounts: []
 
+# The Steward services this one calls: [{service, env, scheme, path}]. Each
+# becomes <env>=steward-<service>:<port>, the port from
+# global.servicePorts.<service> (the umbrella sets the map), with an optional
+# `scheme` ("http" -> http://...) and `path` for a service that wants a URL.
+# An `env` entry with the same name replaces it.
+calls: []
+
 # Extra literal env vars: [{name: FOO, value: "bar"}] or
 # [{name: FOO, valueFrom: {secretKeyRef: {name: foo, key: bar}}}].
 env: []
