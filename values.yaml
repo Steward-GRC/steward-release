@@ -89,6 +89,7 @@ core:
     - delivery
     - collab
     - obligations
+    - identity
 
 workflow:
   enabled: true

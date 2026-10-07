@@ -72,7 +72,7 @@ check above (see the gap above for the ones that don't).
 | Callee | Callers | Enforced by |
 |---|---|---|
 | `identity` | gateway, core, workflow, obligations, reporting, collab | NetworkPolicy only (gap) |
-| `core` | gateway, workflow, delivery, collab, obligations | token check (disabled by default, below) + NetworkPolicy |
+| `core` | gateway, workflow, delivery, collab, obligations, identity | token check (disabled by default, below) + NetworkPolicy |
 | `workflow` | gateway | NetworkPolicy only (gap) |
 | `obligations` | gateway, reporting | NetworkPolicy only (gap) |
 | `audit` | gateway, reporting | NetworkPolicy only (gap) |
