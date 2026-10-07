@@ -257,6 +257,33 @@ delivery:
   # Where the render Jobs fetch policy HTML from: the internal-http port.
   - name: INTERNAL_BASE_URL
     value: http://steward-delivery:8082
+  # On while pdf-renderer runs; the render fails if pdf-renderer is off and
+  # this isn't set to "false" in delivery.env.
+  - name: PDF_EXPORT_ENABLED
+    value: 'true'
+  # Object storage, from the one Secret the render Jobs also load
+  # (pdf-renderer's S3_SECRET_NAME; the render fails if the names differ).
+  # You create it, or name your existing one in both places; the chart holds
+  # no credential. Until it exists delivery runs with PDF export off and
+  # reports `pdfexport` degraded (docs/install.md).
+  - name: S3_ENDPOINT
+    valueFrom:
+      secretKeyRef: {name: steward-pdf-renderer-s3, key: AWS_S3_ENDPOINT, optional: true}
+  - name: S3_BUCKET
+    valueFrom:
+      secretKeyRef: {name: steward-pdf-renderer-s3, key: S3_BUCKET, optional: true}
+  - name: S3_REGION
+    valueFrom:
+      secretKeyRef: {name: steward-pdf-renderer-s3, key: AWS_REGION, optional: true}
+  - name: S3_FORCE_PATH_STYLE
+    valueFrom:
+      secretKeyRef: {name: steward-pdf-renderer-s3, key: AWS_S3_FORCE_PATH_STYLE, optional: true}
+  - name: S3_ACCESS_KEY
+    valueFrom:
+      secretKeyRef: {name: steward-pdf-renderer-s3, key: AWS_ACCESS_KEY_ID, optional: true}
+  - name: S3_SECRET_KEY
+    valueFrom:
+      secretKeyRef: {name: steward-pdf-renderer-s3, key: AWS_SECRET_ACCESS_KEY, optional: true}
   postgres:
     enabled: true
     host: steward-delivery-postgres-primary
@@ -342,6 +369,12 @@ pdf-renderer:
   # The image every render Job runs (the repo's Dockerfile.renderer).
   - name: RENDERER_IMAGE
     value: ghcr.io/steward-grc/steward-pdf-renderer-renderer:v0.1.0
+  # The Secret every render Job loads whole (envFrom) for its object storage:
+  # AWS_S3_ENDPOINT, AWS_REGION, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY and
+  # AWS_S3_FORCE_PATH_STYLE, plus S3_BUCKET for delivery. delivery reads the
+  # same Secret, so both use one store and delivery's bucket.
+  - name: S3_SECRET_NAME
+    value: steward-pdf-renderer-s3
 
 collab:
   enabled: true

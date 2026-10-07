@@ -21,3 +21,10 @@ Each service's readiness probe fails while one of its required dependencies is d
 {{- end }}
 {{- end }}
 {{- end }}
+{{- if include "steward.pdfExportOn" . }}
+
+PDF export reads its object storage from the Secret {{ include "steward.pdfRendererS3Secret" . }}
+  (AWS_S3_ENDPOINT, S3_BUCKET, AWS_REGION, AWS_S3_FORCE_PATH_STYLE, AWS_ACCESS_KEY_ID,
+  AWS_SECRET_ACCESS_KEY), for delivery and every render Job. Until it exists, delivery runs with
+  PDF export off and reports pdfexport degraded; restart delivery after creating it (docs/install.md).
+{{- end }}

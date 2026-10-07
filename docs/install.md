@@ -145,6 +145,44 @@ set the same `postgres` (or `postgres.external`) values, and add the same `RABBI
 workload identity (it calls no Steward service), and uses leader election, so a second replica only
 takes over.
 
+### PDF export
+
+delivery's PDF export creates a PdfRender per request; pdf-renderer's operator turns it into a
+render Job, which fetches the policy HTML from delivery's internal port (8082) with its own
+`steward`-audience token (delivery admits only `<namespace>/steward-pdf-renderer` there) and writes
+the PDF to object storage, where delivery signs the download link. The chart sets
+`PDF_EXPORT_ENABLED=true` for delivery while pdf-renderer is on. To run without pdf-renderer, set
+`pdf-renderer.enabled: false` and `PDF_EXPORT_ENABLED=false` in `delivery.env`; the render fails
+if only the first is set, since nothing would reconcile delivery's PdfRenders.
+
+Both sides read the same object store from one Secret you create (the chart holds no credential
+and never creates it). The render Jobs load it whole; delivery reads its keys into its `S3_*`
+settings and puts the bucket in each PdfRender, so the Jobs write where delivery signs links:
+
+```bash
+kubectl -n steward create secret generic steward-pdf-renderer-s3 \
+  --from-literal=AWS_S3_ENDPOINT=https://s3.example.org \
+  --from-literal=S3_BUCKET=steward-pdf \
+  --from-literal=AWS_REGION=us-east-1 \
+  --from-literal=AWS_S3_FORCE_PATH_STYLE=true \
+  --from-literal=AWS_ACCESS_KEY_ID=... --from-literal=AWS_SECRET_ACCESS_KEY=...
+```
+
+| Secret key | delivery setting | Render Job setting |
+|---|---|---|
+| `AWS_S3_ENDPOINT` | `S3_ENDPOINT` | `AWS_S3_ENDPOINT` |
+| `S3_BUCKET` | `S3_BUCKET` (sent to the Job as its output bucket) | - |
+| `AWS_REGION` | `S3_REGION` | `AWS_REGION` |
+| `AWS_S3_FORCE_PATH_STYLE` | `S3_FORCE_PATH_STYLE` | `AWS_S3_FORCE_PATH_STYLE` |
+| `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` | `S3_ACCESS_KEY`, `S3_SECRET_KEY` | the same |
+
+To use an existing Secret under another name, set `pdf-renderer` `S3_SECRET_NAME` to it (an
+`env` entry) and point delivery's six `S3_*` entries at it in `delivery.env`; the render fails
+if delivery and the Jobs name different Secrets. Every key is optional to delivery: until the
+Secret exists delivery runs with PDF export off and reports `pdfexport` degraded, and it reads
+the Secret only at start, so restart it (`kubectl -n steward rollout restart
+deploy/steward-delivery`) after creating or changing the Secret.
+
 ## Cluster-scoped objects
 
 With default values the chart creates no cluster-scoped object: no CRD, ClusterRole,

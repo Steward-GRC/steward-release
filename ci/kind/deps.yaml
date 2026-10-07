@@ -217,3 +217,54 @@ spec:
         - name: config
           configMap:
             name: steward-kratos
+---
+# Object storage for PDF export: one S3-compatible RustFS instance. delivery
+# and the render Jobs both read it from the steward-pdf-renderer-s3 Secret
+# run.sh creates (the same Secret the chart points both at), and run.sh
+# creates the bucket.
+apiVersion: v1
+kind: Service
+metadata:
+  name: steward-s3
+spec:
+  selector: {app: steward-s3}
+  ports:
+    - {name: s3, port: 9000}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: steward-s3
+spec:
+  selector:
+    matchLabels: {app: steward-s3}
+  template:
+    metadata:
+      labels: {app: steward-s3}
+    spec:
+      containers:
+        - name: rustfs
+          image: docker.io/rustfs/rustfs:1.0.1@sha256:1803faef57627e2d9c2e7d89d655d712ddded5389040054987163043fecb6a3c
+          env:
+            - name: RUSTFS_ADDRESS
+              value: ":9000"
+            - name: RUSTFS_CONSOLE_ENABLE
+              value: "false"
+            - name: RUSTFS_ACCESS_KEY
+              valueFrom:
+                secretKeyRef: {name: steward-pdf-renderer-s3, key: AWS_ACCESS_KEY_ID}
+            - name: RUSTFS_SECRET_KEY
+              valueFrom:
+                secretKeyRef: {name: steward-pdf-renderer-s3, key: AWS_SECRET_ACCESS_KEY}
+          ports:
+            - containerPort: 9000
+          readinessProbe:
+            tcpSocket:
+              port: 9000
+            periodSeconds: 3
+          volumeMounts:
+            - {name: data, mountPath: /data}
+            - {name: logs, mountPath: /logs}
+      volumes:
+        - {name: data, emptyDir: {}}
+        - {name: logs, emptyDir: {}}

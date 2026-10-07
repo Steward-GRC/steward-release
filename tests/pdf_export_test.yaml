@@ -1,0 +1,99 @@
+suite: umbrella PDF export
+templates:
+  - charts/delivery/templates/deployment.yaml
+  - charts/pdf-renderer/templates/deployment.yaml
+  - templates/pdf-export.yaml
+  - templates/NOTES.txt
+tests:
+  - it: turns delivery's PDF export on explicitly while pdf-renderer runs
+    template: charts/delivery/templates/deployment.yaml
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content: {name: PDF_EXPORT_ENABLED, value: "true"}
+  - it: gives delivery its object storage from the render Jobs' Secret, never a literal
+    template: charts/delivery/templates/deployment.yaml
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: S3_ENDPOINT
+            valueFrom: {secretKeyRef: {name: steward-pdf-renderer-s3, key: AWS_S3_ENDPOINT, optional: true}}
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: S3_BUCKET
+            valueFrom: {secretKeyRef: {name: steward-pdf-renderer-s3, key: S3_BUCKET, optional: true}}
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: S3_REGION
+            valueFrom: {secretKeyRef: {name: steward-pdf-renderer-s3, key: AWS_REGION, optional: true}}
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: S3_FORCE_PATH_STYLE
+            valueFrom: {secretKeyRef: {name: steward-pdf-renderer-s3, key: AWS_S3_FORCE_PATH_STYLE, optional: true}}
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: S3_ACCESS_KEY
+            valueFrom: {secretKeyRef: {name: steward-pdf-renderer-s3, key: AWS_ACCESS_KEY_ID, optional: true}}
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: S3_SECRET_KEY
+            valueFrom: {secretKeyRef: {name: steward-pdf-renderer-s3, key: AWS_SECRET_ACCESS_KEY, optional: true}}
+  - it: names the object-storage Secret every render Job loads
+    template: charts/pdf-renderer/templates/deployment.yaml
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content: {name: S3_SECRET_NAME, value: steward-pdf-renderer-s3}
+  - it: refuses PDF export on with pdf-renderer off
+    template: templates/pdf-export.yaml
+    set:
+      pdf-renderer:
+        enabled: false
+    asserts:
+      - failedTemplate:
+          errorPattern: "pdf-renderer is disabled but delivery's PDF export is on"
+  - it: accepts pdf-renderer off once delivery's PDF export is off
+    template: templates/pdf-export.yaml
+    set:
+      pdf-renderer:
+        enabled: false
+      delivery:
+        env:
+          - {name: PDF_EXPORT_ENABLED, value: "false"}
+    asserts:
+      - hasDocuments: {count: 0}
+  - it: refuses delivery and the render Jobs reading different Secrets
+    template: templates/pdf-export.yaml
+    set:
+      pdf-renderer:
+        env:
+          - {name: S3_SECRET_NAME, value: my-object-store}
+    asserts:
+      - failedTemplate:
+          errorPattern: "delivery reads S3_ENDPOINT from Secret \"steward-pdf-renderer-s3\" but the render Jobs load \"my-object-store\""
+  - it: accepts an existing Secret named on both sides
+    template: templates/pdf-export.yaml
+    values:
+      - pdf_export_existing_secret.values.yaml
+    asserts:
+      - hasDocuments: {count: 0}
+  - it: names the Secret in the install notes while PDF export is on
+    template: templates/NOTES.txt
+    asserts:
+      - matchRegexRaw:
+          pattern: "PDF export reads its object storage from the Secret steward-pdf-renderer-s3"
+  - it: says nothing when PDF export is off
+    template: templates/NOTES.txt
+    set:
+      delivery:
+        env:
+          - {name: PDF_EXPORT_ENABLED, value: "false"}
+    asserts:
+      - notMatchRegexRaw:
+          pattern: "PDF export"
