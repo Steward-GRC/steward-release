@@ -1,0 +1,44 @@
+suite: network policy
+templates:
+  - networkpolicy.yaml
+set:
+  aliasName: example
+  image:
+    repository: registry.example.org/steward-example
+    tag: v0.0.0
+  workloadAuth:
+    allowedServiceAccounts: [gateway]
+tests:
+  - it: scopes the main port to the caller list and leaves the probe port open
+    asserts:
+      - equal:
+          path: spec.ingress
+          value:
+            - from:
+                - podSelector:
+                    matchLabels:
+                      app.kubernetes.io/name: steward-gateway
+              ports:
+                - port: 9090
+            - ports:
+                - port: 8081
+  - it: opens no extra port for a gRPC probe on the main port
+    set:
+      probe: {type: grpc}
+    asserts:
+      - equal:
+          path: spec.ingress
+          value:
+            - from:
+                - podSelector:
+                    matchLabels:
+                      app.kubernetes.io/name: steward-gateway
+              ports:
+                - port: 9090
+  - it: renders nothing without a caller list
+    set:
+      workloadAuth:
+        allowedServiceAccounts: []
+    asserts:
+      - hasDocuments:
+          count: 0

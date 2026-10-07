@@ -16,7 +16,7 @@ spec:
         {{- include "service-chart.labels" . | nindent 8 }}
     spec:
       serviceAccountName: {{ include "service-chart.serviceAccountName" . }}
-      automountServiceAccountToken: false
+      automountServiceAccountToken: {{ .Values.automountServiceAccountToken }}
       {{- if .Values.podAntiAffinity }}
       affinity:
         podAntiAffinity:
@@ -30,6 +30,8 @@ spec:
       {{- end }}
       securityContext:
         runAsNonRoot: true
+        runAsUser: {{ .Values.podSecurityContext.runAsUser }}
+        runAsGroup: {{ .Values.podSecurityContext.runAsGroup }}
         seccompProfile:
           type: RuntimeDefault
       containers:
@@ -41,22 +43,35 @@ spec:
             readOnlyRootFilesystem: true
             capabilities:
               drop: ["ALL"]
+          {{- $probeType := include "service-chart.probeType" . }}
+          {{- $separateProbe := include "service-chart.separateProbePort" . }}
+          {{- $probePortName := ternary "probe" .Values.port.name (eq $separateProbe "true") }}
           ports:
-            - name: {{ .Values.port.name }}
-              containerPort: {{ .Values.port.number }}
-            - name: probe
-              containerPort: {{ .Values.probePort }}
+            {{- range (include "service-chart.containerPorts" . | fromJsonArray) }}
+            - name: {{ .name }}
+              containerPort: {{ .number }}
+            {{- end }}
           readinessProbe:
+            {{- if eq $probeType "grpc" }}
+            grpc:
+              port: {{ .Values.port.number }}
+            {{- else }}
             httpGet:
               path: /readyz
-              port: probe
+              port: {{ $probePortName }}
+            {{- end }}
             initialDelaySeconds: 5
             periodSeconds: 10
             timeoutSeconds: 2
           livenessProbe:
+            {{- if eq $probeType "grpc" }}
+            grpc:
+              port: {{ .Values.port.number }}
+            {{- else }}
             httpGet:
               path: /livez
-              port: probe
+              port: {{ $probePortName }}
+            {{- end }}
             initialDelaySeconds: 10
             periodSeconds: 15
             timeoutSeconds: 2
@@ -65,31 +80,43 @@ spec:
               value: {{ .Values.logging.level | quote }}
             - name: LOG_FORMAT
               value: {{ .Values.logging.format | quote }}
+            {{- if eq $probeType "http" }}
             - name: PROBE_PORT
               value: {{ .Values.probePort | quote }}
-            - name: PORT
-              value: {{ .Values.port.number | quote }}
+            {{- end }}
+            {{- with .Values.port.env }}
+            - name: {{ . }}
+              value: {{ $.Values.port.number | quote }}
+            {{- end }}
+            {{- range .Values.extraPorts }}
+            {{- if .env }}
+            - name: {{ .env }}
+              value: {{ .number | quote }}
+            {{- end }}
+            {{- end }}
             {{- if .Values.postgres.enabled }}
             {{- $pg := ternary .Values.postgres.external .Values.postgres .Values.postgres.external.enabled }}
-            - name: DATABASE_HOST
-              value: {{ required "postgres host is required when postgres.enabled" $pg.host | quote }}
-            - name: DATABASE_PORT
-              value: {{ $pg.port | quote }}
-            - name: DATABASE_NAME
-              value: {{ required "postgres database is required when postgres.enabled" $pg.database | quote }}
-            - name: DATABASE_USER
-              value: {{ required "postgres user is required when postgres.enabled" $pg.user | quote }}
-            - name: DATABASE_SSLMODE
-              value: {{ $pg.sslmode | quote }}
-            - name: DATABASE_PASSWORD
+            - name: DATABASE_DSN
+              value: {{ printf "postgres://%s@%s:%v/%s?sslmode=%s"
+                  (required "postgres user is required when postgres.enabled" $pg.user | urlquery)
+                  (required "postgres host is required when postgres.enabled" $pg.host)
+                  $pg.port
+                  (required "postgres database is required when postgres.enabled" $pg.database | urlquery)
+                  ($pg.sslmode | urlquery) | quote }}
+            {{- /* The pgx pool and the migration driver both read PGPASSWORD, so the password never goes into the URL. */}}
+            - name: PGPASSWORD
               valueFrom:
                 secretKeyRef:
                   name: {{ required "postgres passwordSecretName is required when postgres.enabled" $pg.passwordSecretName }}
                   key: {{ $pg.passwordSecretKey }}
             {{- end }}
             {{- if .Values.workloadAuth.callee }}
+            {{- if eq (include "service-chart.workloadAuthMode" .) "disabled" }}
+            {{- /* Local runs only: the services reject this together with any WORKLOAD_OIDC_* setting. */}}
             - name: WORKLOAD_AUTH
-              value: {{ .Values.workloadAuth.authMode | quote }}
+              value: "disabled"
+            {{- else }}
+            {{- /* Enabled is WORKLOAD_AUTH unset; the services reject any other value. */}}
             - name: WORKLOAD_AUDIENCE
               value: {{ .Values.workloadAuth.audience | quote }}
             - name: WORKLOAD_OIDC_ISSUER
@@ -99,9 +126,10 @@ spec:
             - name: WORKLOAD_OIDC_CA_FILE
               value: {{ .Values.workloadAuth.oidc.caFile | quote }}
             - name: WORKLOAD_OIDC_BEARER_FILE
-              value: {{ .Values.workloadAuth.oidc.bearerFile | default .Values.workloadAuth.tokenPath | quote }}
+              value: {{ .Values.workloadAuth.oidc.bearerFile | quote }}
             - name: WORKLOAD_ALLOWED_SERVICEACCOUNTS
-              value: {{ include "service-chart.allowedServiceAccounts" . | quote }}
+              value: {{ include "service-chart.allowedServiceAccounts" . | required (printf "%s: workloadAuth.allowedServiceAccounts is required for an enabled callee" (include "service-chart.fullname" .)) | quote }}
+            {{- end }}
             {{- end }}
             {{- if .Values.workloadAuth.caller }}
             - name: WORKLOAD_TOKEN_FILE
@@ -110,6 +138,21 @@ spec:
             {{- if .Values.opaBundle.enabled }}
             - name: OPA_BUNDLE_PATH
               value: {{ .Values.opaBundle.mountPath | quote }}
+            {{- end }}
+            {{- $overridden := list }}
+            {{- range .Values.env }}
+            {{- $overridden = append $overridden .name }}
+            {{- end }}
+            {{- range .Values.baseEnv }}
+            {{- if not (has .name $overridden) }}
+            - name: {{ .name }}
+              {{- if .value }}
+              value: {{ .value | quote }}
+              {{- else if .valueFrom }}
+              valueFrom:
+                {{- toYaml .valueFrom | nindent 16 }}
+              {{- end }}
+            {{- end }}
             {{- end }}
             {{- range .Values.env }}
             - name: {{ .name }}
@@ -124,10 +167,12 @@ spec:
           resources:
             {{- toYaml . | nindent 12 }}
           {{- end }}
-          {{- if or .Values.workloadAuth.caller .Values.opaBundle.enabled }}
+          {{- $jwksCreds := include "service-chart.jwksCredentials" . }}
+          {{- $identity := or .Values.workloadAuth.caller $jwksCreds }}
+          {{- if or $identity .Values.opaBundle.enabled }}
           volumeMounts:
-            {{- if .Values.workloadAuth.caller }}
-            - name: workload-token
+            {{- if $identity }}
+            - name: workload-identity
               mountPath: /var/run/secrets/steward
               readOnly: true
             {{- end }}
@@ -152,16 +197,36 @@ spec:
             - name: opa-bundle
               mountPath: {{ .Values.opaBundle.mountPath }}
       {{- end }}
-      {{- if or .Values.workloadAuth.caller .Values.opaBundle.enabled }}
+      {{- $jwksCreds := include "service-chart.jwksCredentials" . }}
+      {{- $identity := or .Values.workloadAuth.caller $jwksCreds }}
+      {{- if or $identity .Values.opaBundle.enabled }}
       volumes:
-        {{- if .Values.workloadAuth.caller }}
-        - name: workload-token
+        {{- if $identity }}
+        - name: workload-identity
           projected:
             sources:
+              {{- if .Values.workloadAuth.caller }}
+              # The caller token, presented to other Steward services.
               - serviceAccountToken:
                   path: token
                   audience: {{ .Values.workloadAuth.audience }}
                   expirationSeconds: 3600
+              {{- end }}
+              {{- if $jwksCreds }}
+              # The JWKS fetch credentials: the API server rejects the
+              # steward-audience token, so a second token with no audience
+              # (the API server's own default) authenticates the fetch, and
+              # the namespace's kube-root-ca.crt verifies the API server
+              # without automounting the service-account token.
+              - serviceAccountToken:
+                  path: jwks/token
+                  expirationSeconds: 3600
+              - configMap:
+                  name: kube-root-ca.crt
+                  items:
+                    - key: ca.crt
+                      path: kube-ca/ca.crt
+              {{- end }}
         {{- end }}
         {{- if .Values.opaBundle.enabled }}
         - name: opa-bundle

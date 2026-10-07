@@ -1,0 +1,67 @@
+suite: umbrella workload-auth wiring
+templates:
+  - charts/identity/templates/deployment.yaml
+  - charts/workflow/templates/deployment.yaml
+  - charts/obligations/templates/deployment.yaml
+  - charts/audit/templates/deployment.yaml
+  - charts/core/templates/deployment.yaml
+  - charts/delivery/templates/deployment.yaml
+  - charts/reporting/templates/deployment.yaml
+  - charts/collab/templates/deployment.yaml
+  - charts/ai/templates/deployment.yaml
+  - charts/gateway/templates/deployment.yaml
+  - charts/pdf-renderer/templates/deployment.yaml
+tests:
+  # identity, workflow, obligations and audit have no workload-auth library
+  # yet; the chart must not imply they verify callers.
+  - it: wires no workload-auth settings into identity, workflow, obligations, audit or pdf-renderer
+    template: charts/identity/templates/deployment.yaml
+    asserts: &none
+      - notContains: {path: "spec.template.spec.containers[0].env", content: {name: WORKLOAD_AUTH}, any: true}
+      - notContains: {path: "spec.template.spec.containers[0].env", content: {name: WORKLOAD_AUDIENCE}, any: true}
+      - notContains: {path: "spec.template.spec.containers[0].env", content: {name: WORKLOAD_OIDC_ISSUER}, any: true}
+      - notContains: {path: "spec.template.spec.containers[0].env", content: {name: WORKLOAD_OIDC_JWKS_URL}, any: true}
+      - notContains: {path: "spec.template.spec.containers[0].env", content: {name: WORKLOAD_OIDC_CA_FILE}, any: true}
+      - notContains: {path: "spec.template.spec.containers[0].env", content: {name: WORKLOAD_OIDC_BEARER_FILE}, any: true}
+      - notContains: {path: "spec.template.spec.containers[0].env", content: {name: WORKLOAD_ALLOWED_SERVICEACCOUNTS}, any: true}
+      - notContains: {path: "spec.template.spec.containers[0].env", content: {name: WORKLOAD_TOKEN_FILE}, any: true}
+  - it: wires nothing into workflow
+    template: charts/workflow/templates/deployment.yaml
+    asserts: *none
+  - it: wires nothing into obligations
+    template: charts/obligations/templates/deployment.yaml
+    asserts: *none
+  - it: wires nothing into audit
+    template: charts/audit/templates/deployment.yaml
+    asserts: *none
+  - it: wires nothing into pdf-renderer
+    template: charts/pdf-renderer/templates/deployment.yaml
+    asserts: *none
+  - it: gives core (disabled by default) WORKLOAD_AUTH=disabled and no verification block
+    template: charts/core/templates/deployment.yaml
+    asserts:
+      - contains: {path: "spec.template.spec.containers[0].env", content: {name: WORKLOAD_AUTH, value: disabled}}
+      - notContains: {path: "spec.template.spec.containers[0].env", content: {name: WORKLOAD_OIDC_ISSUER}, any: true}
+      - notContains: {path: "spec.template.spec.containers[0].env", content: {name: WORKLOAD_ALLOWED_SERVICEACCOUNTS}, any: true}
+      - contains: {path: "spec.template.spec.containers[0].env", content: {name: WORKLOAD_TOKEN_FILE}, any: true}
+  - it: gives delivery the verification block and no WORKLOAD_AUTH
+    template: charts/delivery/templates/deployment.yaml
+    asserts: &enabled
+      - notContains: {path: "spec.template.spec.containers[0].env", content: {name: WORKLOAD_AUTH}, any: true}
+      - contains: {path: "spec.template.spec.containers[0].env", content: {name: WORKLOAD_OIDC_ISSUER}, any: true}
+      - contains: {path: "spec.template.spec.containers[0].env", content: {name: WORKLOAD_ALLOWED_SERVICEACCOUNTS}, any: true}
+  - it: gives reporting the verification block
+    template: charts/reporting/templates/deployment.yaml
+    asserts: *enabled
+  - it: gives collab the verification block
+    template: charts/collab/templates/deployment.yaml
+    asserts: *enabled
+  - it: gives ai the verification block
+    template: charts/ai/templates/deployment.yaml
+    asserts: *enabled
+  - it: makes gateway a caller only
+    template: charts/gateway/templates/deployment.yaml
+    asserts:
+      - contains: {path: "spec.template.spec.containers[0].env", content: {name: WORKLOAD_TOKEN_FILE, value: /var/run/secrets/steward/token}}
+      - notContains: {path: "spec.template.spec.containers[0].env", content: {name: WORKLOAD_AUTH}, any: true}
+      - notContains: {path: "spec.template.spec.containers[0].env", content: {name: WORKLOAD_OIDC_ISSUER}, any: true}

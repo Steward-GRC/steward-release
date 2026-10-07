@@ -1,0 +1,94 @@
+suite: environment
+templates:
+  - deployment.yaml
+set:
+  aliasName: example
+  image:
+    repository: registry.example.org/steward-example
+    tag: v0.0.0
+  baseEnv:
+    - name: JOB_NAMESPACE
+      valueFrom:
+        fieldRef:
+          fieldPath: metadata.namespace
+    - name: MODE
+      value: standard
+tests:
+  - it: renders the umbrella's base settings
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: JOB_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content: {name: MODE, value: standard}
+  - it: lets an operator's env entry replace a base setting without a duplicate name
+    set:
+      env:
+        - name: MODE
+          value: custom
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content: {name: MODE, value: custom}
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          content: {name: MODE, value: standard}
+  - it: passes the database as the DATABASE_DSN the services read, password from the Secret
+    set:
+      postgres:
+        enabled: true
+        host: example-postgres-primary
+        port: 5432
+        database: example
+        user: app
+        sslmode: require
+        passwordSecretName: example-postgres-role-app
+        passwordSecretKey: password
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: DATABASE_DSN
+            value: postgres://app@example-postgres-primary:5432/example?sslmode=require
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: PGPASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: example-postgres-role-app
+                key: password
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          content: {name: DATABASE_HOST, value: example-postgres-primary}
+  - it: builds DATABASE_DSN from the bring-your-own instance when external is enabled
+    set:
+      postgres:
+        enabled: true
+        host: unused
+        external:
+          enabled: true
+          host: db.example.org
+          port: 6432
+          database: steward example
+          user: svc
+          sslmode: verify-full
+          passwordSecretName: byo-postgres
+          passwordSecretKey: svc-password
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: DATABASE_DSN
+            value: postgres://svc@db.example.org:6432/steward+example?sslmode=verify-full
+  - it: sets no database settings without a database
+    asserts:
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          any: true
+          content: {name: DATABASE_DSN}

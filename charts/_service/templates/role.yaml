@@ -1,0 +1,16 @@
+{{/*
+Namespaced, least-privilege API access for an alias whose service calls the
+Kubernetes API (a controller, or a service that creates custom resources).
+The rules come from the service's own RBAC markers; nothing is cluster-wide.
+*/}}
+{{- if .Values.rbac.rules }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "service-chart.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "service-chart.labels" . | nindent 4 }}
+rules:
+  {{- toYaml .Values.rbac.rules | nindent 2 }}
+{{- end }}

@@ -1,0 +1,106 @@
+suite: workload-auth environment
+templates:
+  - deployment.yaml
+set:
+  aliasName: example
+  image:
+    repository: registry.example.org/steward-example
+    tag: v0.0.0
+tests:
+  - it: emits the verification block and no WORKLOAD_AUTH for an enabled callee
+    set:
+      workloadAuth:
+        callee: true
+        allowedServiceAccounts: [gateway, core]
+    asserts:
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          content: {name: WORKLOAD_AUTH}
+          any: true
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content: {name: WORKLOAD_AUDIENCE, value: steward}
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content: {name: WORKLOAD_OIDC_ISSUER, value: "https://kubernetes.default.svc.cluster.local"}
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content: {name: WORKLOAD_OIDC_JWKS_URL, value: "https://kubernetes.default.svc.cluster.local/openid/v1/jwks"}
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content: {name: WORKLOAD_OIDC_CA_FILE}
+          any: true
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content: {name: WORKLOAD_OIDC_BEARER_FILE}
+          any: true
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content: {name: WORKLOAD_ALLOWED_SERVICEACCOUNTS, value: "NAMESPACE/steward-gateway,NAMESPACE/steward-core"}
+  - it: emits only WORKLOAD_AUTH=disabled for a disabled callee
+    set:
+      workloadAuth:
+        callee: true
+        authMode: disabled
+        allowedServiceAccounts: [gateway]
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content: {name: WORKLOAD_AUTH, value: disabled}
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          content: {name: WORKLOAD_OIDC_ISSUER}
+          any: true
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          content: {name: WORKLOAD_OIDC_JWKS_URL}
+          any: true
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          content: {name: WORKLOAD_OIDC_CA_FILE}
+          any: true
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          content: {name: WORKLOAD_OIDC_BEARER_FILE}
+          any: true
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          content: {name: WORKLOAD_AUDIENCE}
+          any: true
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          content: {name: WORKLOAD_ALLOWED_SERVICEACCOUNTS}
+          any: true
+  - it: emits no callee settings for a service that isn't a callee
+    set:
+      workloadAuth:
+        allowedServiceAccounts: [gateway]
+    asserts:
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          content: {name: WORKLOAD_AUTH}
+          any: true
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          content: {name: WORKLOAD_OIDC_ISSUER}
+          any: true
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          content: {name: WORKLOAD_ALLOWED_SERVICEACCOUNTS}
+          any: true
+  - it: rejects any authMode other than enabled or disabled
+    set:
+      workloadAuth:
+        callee: true
+        authMode: "off"
+        allowedServiceAccounts: [gateway]
+    asserts:
+      - failedTemplate:
+          errorPattern: "workloadAuth.authMode must be enabled or disabled"
+  - it: rejects an enabled callee with an empty caller list
+    set:
+      workloadAuth:
+        callee: true
+    asserts:
+      - failedTemplate:
+          errorPattern: "workloadAuth.allowedServiceAccounts is required"

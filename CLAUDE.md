@@ -45,10 +45,17 @@ Steward install, alongside the appliance.
 ├── values.yaml                per-service defaults
 ├── values-ha-example.yaml     documents a 3-replica Postgres + multi-replica services install
 ├── charts/
-│   └── _service/               the reusable chart every service alias composes
-│       └── templates/          deployment, service, hpa, pdb, serviceaccount, networkpolicy
+│   ├── _service/               the reusable chart every service alias composes
+│   │   ├── templates/          deployment, service, hpa, pdb, serviceaccount, role, networkpolicy
+│   │   └── tests/              helm-unittest suites for the reusable chart
+│   ├── _pdf-renderer-crds/     the PdfRender CRD, vendored (crds/ only)
+│   └── _ai-crds/               the PolicyAIJob CRD, vendored (crds/ only)
+├── scripts/                   sync-crds.sh and the CRD pins it reads (crds-upstream.txt)
+├── ci/kind/                   the kind install test: image pins, dependencies, values, run.sh
+├── templates/NOTES.txt        the umbrella's install notes (required Postgres extensions)
+├── tests/                     helm-unittest suites for the umbrella's per-service wiring
 ├── docs/                      install, upgrade and service-to-service auth
-├── .github/workflows/         this repo's CI: helm lint/template/kubeconform, DCO, secrets
+├── .github/workflows/         this repo's CI: helm lint/unittest/template/kubeconform, kind install, DCO, secrets
 └── README.md                  what this is, how to install, where to look
 ```
 
@@ -70,9 +77,17 @@ Steward install, alongside the appliance.
 
 ### Tests, fixtures and generated code
 
+- The only vendored files are the CRDs under `charts/_*-crds/crds/`, copied by
+  `scripts/sync-crds.sh` from each service at the commit in `scripts/crds-upstream.txt`. Never edit
+  them by hand; bump the pin and re-run the script.
 - No generated code here. `helm template` output is never committed; CI renders it fresh from
   `values.yaml`, `values-ha-example.yaml` and a bring-your-own-Postgres example, each piped to a
   pinned, checksum-checked `kubeconform`.
+- The install test (`ci/kind/run.sh`, CI job `kind`) installs the chart on kind with the service
+  images built from the commits pinned in `ci/kind/images.txt`. Bump a pin to test newer service
+  code; a chart change that renders but can't run fails there.
+- Template unit tests are helm-unittest suites in `charts/_service/tests/*_test.yaml` (`task test`;
+  CI runs the pinned, checksum-checked standalone binary). Every template change gets a case.
 <!-- layout:end -->
 
 ## CI and Actions minutes

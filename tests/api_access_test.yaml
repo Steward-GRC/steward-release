@@ -1,0 +1,109 @@
+suite: umbrella API access
+templates:
+  - charts/pdf-renderer/templates/deployment.yaml
+  - charts/pdf-renderer/templates/role.yaml
+  - charts/pdf-renderer/templates/rolebinding.yaml
+  - charts/pdf-renderer/templates/serviceaccount.yaml
+  - charts/ai/templates/deployment.yaml
+  - charts/ai/templates/role.yaml
+  - charts/delivery/templates/deployment.yaml
+  - charts/delivery/templates/role.yaml
+  - charts/core/templates/deployment.yaml
+  - charts/core/templates/role.yaml
+tests:
+  - it: gives the pdf-renderer operator the API token on its own service account
+    template: charts/pdf-renderer/templates/deployment.yaml
+    asserts:
+      - equal: {path: spec.template.spec.automountServiceAccountToken, value: true}
+      - equal: {path: spec.template.spec.serviceAccountName, value: steward-pdf-renderer-operator}
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content: {name: JOB_SERVICE_ACCOUNT, value: steward-pdf-renderer}
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content: {name: WATCH_NAMESPACE, valueFrom: {fieldRef: {fieldPath: metadata.namespace}}}
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content: {name: RENDERER_IMAGE}
+          any: true
+  - it: grants the pdf-renderer operator exactly its controller's RBAC markers plus leader election
+    template: charts/pdf-renderer/templates/role.yaml
+    asserts:
+      - equal:
+          path: rules
+          value:
+            - apiGroups: [renders.steward-grc.com]
+              resources: [pdfrenders]
+              verbs: [get, list, watch, create, update, patch, delete]
+            - apiGroups: [renders.steward-grc.com]
+              resources: [pdfrenders/status]
+              verbs: [get, update, patch]
+            - apiGroups: [renders.steward-grc.com]
+              resources: [pdfrenders/finalizers]
+              verbs: [update]
+            - apiGroups: [batch]
+              resources: [jobs]
+              verbs: [get, list, watch, create, update, patch, delete]
+            - apiGroups: [""]
+              resources: [events]
+              verbs: [create, patch]
+            - apiGroups: [coordination.k8s.io]
+              resources: [leases]
+              verbs: [get, list, watch, create, update, patch, delete]
+  - it: binds that Role to the operator's service account
+    template: charts/pdf-renderer/templates/rolebinding.yaml
+    asserts:
+      - equal: {path: "subjects[0].name", value: steward-pdf-renderer-operator}
+  - it: runs the render Jobs on their own service account with no token
+    template: charts/pdf-renderer/templates/serviceaccount.yaml
+    asserts:
+      - hasDocuments: {count: 2}
+      - equal: {path: metadata.name, value: steward-pdf-renderer-operator}
+        documentIndex: 0
+      - equal: {path: metadata.name, value: steward-pdf-renderer}
+        documentIndex: 1
+      - equal: {path: automountServiceAccountToken, value: false}
+        documentIndex: 1
+  - it: gives ai the API token and its job namespace
+    template: charts/ai/templates/deployment.yaml
+    asserts:
+      - equal: {path: spec.template.spec.automountServiceAccountToken, value: true}
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content: {name: AI_JOB_NAMESPACE, valueFrom: {fieldRef: {fieldPath: metadata.namespace}}}
+  - it: lets ai create and read PolicyAIJobs only
+    template: charts/ai/templates/role.yaml
+    asserts:
+      - equal:
+          path: rules
+          value:
+            - apiGroups: [ai.steward-grc.com]
+              resources: [policyaijobs]
+              verbs: [get, create]
+  - it: gives delivery the API token and its PdfRender namespace
+    template: charts/delivery/templates/deployment.yaml
+    asserts:
+      - equal: {path: spec.template.spec.automountServiceAccountToken, value: true}
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content: {name: POD_NAMESPACE, valueFrom: {fieldRef: {fieldPath: metadata.namespace}}}
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content: {name: INTERNAL_BASE_URL, value: "http://steward-delivery:8082"}
+  - it: lets delivery create and watch PdfRenders only
+    template: charts/delivery/templates/role.yaml
+    asserts:
+      - equal:
+          path: rules
+          value:
+            - apiGroups: [renders.steward-grc.com]
+              resources: [pdfrenders]
+              verbs: [create, list, watch]
+  - it: keeps the token off and grants nothing to a service that doesn't call the API
+    template: charts/core/templates/deployment.yaml
+    asserts:
+      - equal: {path: spec.template.spec.automountServiceAccountToken, value: false}
+  - it: renders no Role for core
+    template: charts/core/templates/role.yaml
+    asserts:
+      - hasDocuments: {count: 0}

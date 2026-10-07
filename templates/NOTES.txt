@@ -1,0 +1,23 @@
+Steward {{ .Chart.AppVersion }} installed in {{ .Release.Namespace }}.
+
+Each service's readiness probe fails while one of its required dependencies is down:
+  kubectl get deploy -n {{ .Release.Namespace }} -l app.kubernetes.io/part-of=steward
+{{- range $alias, $v := .Values }}
+{{- if and (kindIs "map" $v) (hasKey $v "postgres") $v.enabled }}
+{{- $pg := $v.postgres }}
+{{- if and $pg.enabled $pg.requiredExtensions }}
+{{- $db := ternary $pg.external.database $pg.database $pg.external.enabled }}
+
+{{ $alias }}: its database ({{ $db }}) needs these Postgres extensions: {{ join ", " $pg.requiredExtensions }}.
+{{- if $pg.external.enabled }}
+  On your own Postgres, install them on the server, then as a superuser, before the first start:
+{{- range $pg.requiredExtensions }}
+    CREATE EXTENSION IF NOT EXISTS {{ . }};
+{{- end }}
+  in the {{ $db }} database. Without them {{ $alias }}'s first migration fails and it never becomes Ready.
+{{- else }}
+  The managed {{ $alias }}-postgres instance runs an image with them and creates them (values.yaml).
+{{- end }}
+{{- end }}
+{{- end }}
+{{- end }}

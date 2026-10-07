@@ -1,0 +1,115 @@
+suite: API access and RBAC
+templates:
+  - deployment.yaml
+  - serviceaccount.yaml
+  - role.yaml
+  - rolebinding.yaml
+set:
+  aliasName: example
+  image:
+    repository: registry.example.org/steward-example
+    tag: v0.0.0
+tests:
+  - it: keeps the service-account token off by default
+    template: deployment.yaml
+    asserts:
+      - equal:
+          path: spec.template.spec.automountServiceAccountToken
+          value: false
+  - it: mounts the service-account token when the alias needs the API
+    template: deployment.yaml
+    set:
+      automountServiceAccountToken: true
+    asserts:
+      - equal:
+          path: spec.template.spec.automountServiceAccountToken
+          value: true
+  - it: renders no Role or RoleBinding without rules
+    template: role.yaml
+    asserts:
+      - hasDocuments:
+          count: 0
+  - it: renders no RoleBinding without rules
+    template: rolebinding.yaml
+    asserts:
+      - hasDocuments:
+          count: 0
+  - it: renders a namespaced Role from the alias's rules
+    template: role.yaml
+    set:
+      rbac:
+        rules:
+          - apiGroups: [batch]
+            resources: [jobs]
+            verbs: [get, list, watch]
+    asserts:
+      - isKind:
+          of: Role
+      - equal:
+          path: metadata.name
+          value: steward-example
+      - equal:
+          path: metadata.namespace
+          value: NAMESPACE
+      - equal:
+          path: rules
+          value:
+            - apiGroups: [batch]
+              resources: [jobs]
+              verbs: [get, list, watch]
+  - it: binds the Role to the alias's service account
+    template: rolebinding.yaml
+    set:
+      serviceAccount:
+        name: steward-example-operator
+      rbac:
+        rules:
+          - apiGroups: [batch]
+            resources: [jobs]
+            verbs: [get]
+    asserts:
+      - equal:
+          path: subjects
+          value:
+            - kind: ServiceAccount
+              name: steward-example-operator
+              namespace: NAMESPACE
+      - equal:
+          path: roleRef
+          value:
+            apiGroup: rbac.authorization.k8s.io
+            kind: Role
+            name: steward-example
+  - it: names the created service account from serviceAccount.name when set
+    template: serviceaccount.yaml
+    set:
+      serviceAccount:
+        name: steward-example-operator
+    asserts:
+      - equal:
+          path: metadata.name
+          value: steward-example-operator
+  - it: runs the pod as the named service account
+    template: deployment.yaml
+    set:
+      serviceAccount:
+        name: steward-example-operator
+    asserts:
+      - equal:
+          path: spec.template.spec.serviceAccountName
+          value: steward-example-operator
+  - it: creates extra service accounts with no token automount
+    template: serviceaccount.yaml
+    set:
+      extraServiceAccounts: [steward-example-jobs]
+    asserts:
+      - hasDocuments:
+          count: 2
+      - equal:
+          path: metadata.name
+          value: steward-example-jobs
+        documentIndex: 1
+      - equal:
+          path: automountServiceAccountToken
+          value: false
+        documentIndex: 1

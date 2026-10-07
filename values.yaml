@@ -33,9 +33,10 @@ identity:
       database: ''
       user: ''
       passwordSecretName: ''
+  # No workload-auth library yet: the chart wires no WORKLOAD_* settings, and
+  # the caller list only scopes the NetworkPolicy (see
+  # docs/service-to-service-auth.md).
   workloadAuth:
-    callee: true
-    authMode: enabled
     allowedServiceAccounts:
     - gateway
     - core
@@ -88,6 +89,7 @@ core:
     - delivery
     - collab
     - obligations
+    - identity
 
 workflow:
   enabled: true
@@ -114,10 +116,10 @@ workflow:
       database: ''
       user: ''
       passwordSecretName: ''
+  # No workload-auth library yet: the chart wires no WORKLOAD_* settings, and
+  # the caller list only scopes the NetworkPolicy (see
+  # docs/service-to-service-auth.md).
   workloadAuth:
-    caller: true
-    callee: true
-    authMode: enabled
     allowedServiceAccounts:
     - gateway
 
@@ -146,10 +148,10 @@ obligations:
       database: ''
       user: ''
       passwordSecretName: ''
+  # No workload-auth library yet: the chart wires no WORKLOAD_* settings, and
+  # the caller list only scopes the NetworkPolicy (see
+  # docs/service-to-service-auth.md).
   workloadAuth:
-    caller: true
-    callee: true
-    authMode: enabled
     allowedServiceAccounts:
     - gateway
     - reporting
@@ -164,6 +166,9 @@ audit:
   port:
     name: grpc
     number: 9094
+  # audit has no HTTP listener; it serves grpc.health.v1 on its gRPC port.
+  probe:
+    type: grpc
   postgres:
     enabled: true
     host: steward-audit-postgres-primary
@@ -179,9 +184,10 @@ audit:
       database: ''
       user: ''
       passwordSecretName: ''
+  # No workload-auth library yet: the chart wires no WORKLOAD_* settings, and
+  # the caller list only scopes the NetworkPolicy (see
+  # docs/service-to-service-auth.md).
   workloadAuth:
-    callee: true
-    authMode: enabled
     allowedServiceAccounts:
     - gateway
     - reporting
@@ -196,6 +202,29 @@ delivery:
   port:
     name: grpc
     number: 9095
+  # The internal HTTP port the PDF renderer's Jobs fetch policy HTML from.
+  # delivery's own default (8081) is the chart's probe port, so the chart
+  # always sets it.
+  extraPorts:
+  - name: internal-http
+    number: 8082
+    env: INTERNAL_HTTP_PORT
+  # PDF export: delivery creates PdfRender resources for the pdf-renderer
+  # operator in its own namespace and watches their status.
+  automountServiceAccountToken: true
+  rbac:
+    rules:
+    - apiGroups: [renders.steward-grc.com]
+      resources: [pdfrenders]
+      verbs: [create, list, watch]
+  baseEnv:
+  - name: POD_NAMESPACE
+    valueFrom:
+      fieldRef:
+        fieldPath: metadata.namespace
+  # Where the render Jobs fetch policy HTML from: the internal-http port.
+  - name: INTERNAL_BASE_URL
+    value: http://steward-delivery:8082
   postgres:
     enabled: true
     host: steward-delivery-postgres-primary
@@ -229,8 +258,49 @@ pdf-renderer:
   port:
     name: grpc
     number: 9099
-  workloadAuth:
-    caller: true
+    env: METRICS_PORT
+  # Not a caller itself: the operator gives each render Job its own
+  # steward-audience token for the fetch from delivery.
+  #
+  # The operator reconciles PdfRenders into Jobs, so it gets the API token,
+  # on its own service account, with exactly its controller's RBAC markers
+  # plus leader election. The Jobs run as steward-pdf-renderer (the caller
+  # name delivery's allow-list expects), with no RBAC and no API token.
+  serviceAccount:
+    name: steward-pdf-renderer-operator
+  extraServiceAccounts:
+  - steward-pdf-renderer
+  automountServiceAccountToken: true
+  rbac:
+    rules:
+    - apiGroups: [renders.steward-grc.com]
+      resources: [pdfrenders]
+      verbs: [get, list, watch, create, update, patch, delete]
+    - apiGroups: [renders.steward-grc.com]
+      resources: [pdfrenders/status]
+      verbs: [get, update, patch]
+    - apiGroups: [renders.steward-grc.com]
+      resources: [pdfrenders/finalizers]
+      verbs: [update]
+    - apiGroups: [batch]
+      resources: [jobs]
+      verbs: [get, list, watch, create, update, patch, delete]
+    - apiGroups: [""]
+      resources: [events]
+      verbs: [create, patch]
+    - apiGroups: [coordination.k8s.io]
+      resources: [leases]
+      verbs: [get, list, watch, create, update, patch, delete]
+  baseEnv:
+  - name: WATCH_NAMESPACE
+    valueFrom:
+      fieldRef:
+        fieldPath: metadata.namespace
+  - name: JOB_SERVICE_ACCOUNT
+    value: steward-pdf-renderer
+  # The image every render Job runs (the repo's Dockerfile.renderer).
+  - name: RENDERER_IMAGE
+    value: ghcr.io/steward-grc/steward-pdf-renderer-renderer:v0.1.0
 
 collab:
   enabled: true
@@ -279,6 +349,19 @@ ai:
   port:
     name: grpc
     number: 9097
+  # ai's server creates and reads PolicyAIJob resources (its job endpoints
+  # and the related-policy re-evaluation) in its own namespace.
+  automountServiceAccountToken: true
+  rbac:
+    rules:
+    - apiGroups: [ai.steward-grc.com]
+      resources: [policyaijobs]
+      verbs: [get, create]
+  baseEnv:
+  - name: AI_JOB_NAMESPACE
+    valueFrom:
+      fieldRef:
+        fieldPath: metadata.namespace
   postgres:
     enabled: true
     host: steward-ai-postgres-primary
@@ -288,6 +371,10 @@ ai:
     sslmode: require
     passwordSecretName: steward-ai-postgres-role-app
     passwordSecretKey: password
+    # ai's baseline migration creates vector columns (pgvector). Shown in the
+    # install notes; a bring-your-own database must have it before ai starts.
+    requiredExtensions:
+    - vector
     external:
       enabled: false
       host: ''
@@ -348,6 +435,10 @@ gateway:
   port:
     name: http
     number: 8080
+    # GATEWAY_HTTP_ADDR's default (:8080) already matches.
+    env: ''
+  # gateway serves /livez and /readyz on its one HTTP port.
+  probePort: 8080
   podDisruptionBudget:
     enabled: true
     minAvailable: 1
@@ -364,6 +455,7 @@ web:
   port:
     name: http
     number: 3000
+    env: PORT
 
 # ---------------------------------------------------------------------------
 # Bugs5382/helm-postgres-ha, one instance per data-owning service. `replicas`
@@ -431,9 +523,18 @@ ai-postgres:
   enabled: true
   fullnameOverride: steward-ai-postgres
   replicas: 1
+  # ai needs pgvector, which the official postgres image doesn't ship: the
+  # pgvector image is that image plus the extension, same major and base.
+  image:
+    registry: docker.io
+    repository: pgvector/pgvector
+    tag: "0.8.7-pg18-bookworm"
+    digest: "sha256:2358fcba361ed2233a5ed81b5fe4ca779ccb304120ce531a3bf51c0ed7e2bc11"
   databases:
   - name: ai
     owner: app
+    extensions:
+    - vector
 
 reporting-postgres:
   enabled: true

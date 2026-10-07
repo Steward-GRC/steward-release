@@ -12,12 +12,37 @@ image:
 replicaCount: 1
 podAntiAffinity: false
 
+# The main listener. `env` names the variable that passes the number to the
+# service (the Go services read GRPC_PORT); empty passes none, for a service
+# whose own default already matches.
 port:
   name: grpc
   number: 9090
+  env: GRPC_PORT
+# Health probes. `http` (the default) GETs /readyz and /livez on probePort;
+# set probePort to port.number for a service that serves them on its main
+# HTTP port (rendered once, never as a duplicate port). `grpc` uses the
+# kubelet's native grpc.health.v1 probe on the main port, for a service with
+# no HTTP listener; probePort and PROBE_PORT are then unused.
+probe:
+  type: http
 probePort: 8081
 
+# More listeners on the same container: [{name, number, env}]. Each becomes a
+# container port and a Service port, sits behind the same NetworkPolicy caller
+# list as the main port, and, when `env` is set, is passed to the service in
+# that variable so the chart, not a service default, decides the number. A
+# number or name used twice (main, probe or extra) fails the render.
+extraPorts: []
+
 resources: {}
+
+# Every service image is distroless and ships `USER nonroot:nonroot`, a user
+# name the kubelet can't check against runAsNonRoot. The pod runs as that
+# user's well-known numeric UID/GID instead.
+podSecurityContext:
+  runAsUser: 65532
+  runAsGroup: 65532
 
 podDisruptionBudget:
   enabled: false
@@ -34,18 +59,37 @@ service:
 
 serviceAccount:
   create: true
+  # Empty means steward-<aliasName>.
   name: ""
   annotations: {}
+
+# Off by default: no pod gets the general-purpose service-account token.
+# Turn it on only for a service that calls the Kubernetes API itself, and
+# give it `rbac.rules`.
+automountServiceAccountToken: false
+
+# Namespaced Role + RoleBinding for this alias's service account, written
+# from the service's own RBAC markers. Empty renders neither.
+rbac:
+  rules: []
+
+# More service accounts this alias's service hands to pods it creates (the
+# PDF renderer's Jobs). No RBAC, no token automount.
+extraServiceAccounts: []
 
 # Extra literal env vars: [{name: FOO, value: "bar"}] or
 # [{name: FOO, valueFrom: {secretKeyRef: {name: foo, key: bar}}}].
 env: []
+# The same shape, set by the umbrella's values for settings a service needs
+# to run at all. An `env` entry with the same name replaces one here, so an
+# operator's `env` list never has to repeat these.
+baseEnv: []
 
 # Set by the umbrella for every service that owns a database. The chart
-# assembles DATABASE_HOST/PORT/NAME/USER/SSLMODE as plain values and reads
-# DATABASE_PASSWORD from an existing Secret (helm-postgres-ha's per-role
-# password Secret, "<cluster>-role-<role>", or the operator's own Secret for
-# a bring-your-own instance). `external.enabled` switches to that bring-your-own
+# builds DATABASE_DSN (postgres://<user>@<host>:<port>/<database>?sslmode=...)
+# as a plain value and passes the password as PGPASSWORD from an existing
+# Secret (helm-postgres-ha's per-role password Secret, "<cluster>-role-<role>",
+# or the operator's own Secret for a bring-your-own instance). `external.enabled` switches to that bring-your-own
 # instance; the chart never ships a plaintext default for either path.
 postgres:
   enabled: false
@@ -56,6 +100,9 @@ postgres:
   sslmode: require
   passwordSecretName: ""
   passwordSecretKey: password
+  # Postgres extensions the service's migrations need in its database. The
+  # chart can't create them; the umbrella's install notes list them.
+  requiredExtensions: []
   external:
     enabled: false
     host: ""
@@ -70,13 +117,17 @@ postgres:
 # service-account token; a callee verifies it against the cluster's OIDC
 # JWKS and checks the caller against its own allow-list.
 # `allowedServiceAccounts` holds bare caller names ("gateway", "core", ...);
-# the chart expands each to "<namespace>/steward-<name>". See
-# docs/service-to-service-auth.md.
+# the chart expands each to "<namespace>/steward-<name>" for a callee and
+# also scopes the NetworkPolicy to them. Set `caller`/`callee` only for a
+# service that implements workload auth. See docs/service-to-service-auth.md.
 workloadAuth:
   caller: false
   callee: false
   audience: steward
   tokenPath: /var/run/secrets/steward/token
+  # `enabled`: WORKLOAD_AUTH stays unset and the verification block below is
+  # set. `disabled`: WORKLOAD_AUTH=disabled alone, for a local run only.
+  # Anything else fails the render.
   authMode: enabled
   oidc:
     # Defaults assume the cluster's own API server is the OIDC issuer
@@ -85,12 +136,15 @@ workloadAuth:
     # --service-account-issuer.
     issuer: https://kubernetes.default.svc.cluster.local
     jwksUrl: https://kubernetes.default.svc.cluster.local/openid/v1/jwks
-    # Mounted into every pod automatically; not a Secret this chart manages.
-    caFile: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
-    # Empty means "use workloadAuth.tokenPath" (set in the deployment
-    # template): the common case where this service is also a caller, so its
-    # own outbound token doubles as the bearer file.
-    bearerFile: ""
+    # The JWKS fetch credentials the chart mounts for every enabled callee:
+    # the namespace's kube-root-ca.crt ConfigMap (the API server's CA), and
+    # a second projected service-account token with the API server's default
+    # audience. The caller token (audience `steward`) can't be used here: the
+    # API server rejects it. Neither is a Secret this chart manages, and the
+    # service-account token automount stays off. Point both at your own
+    # files for an issuer outside the cluster.
+    caFile: /var/run/secrets/steward/kube-ca/ca.crt
+    bearerFile: /var/run/secrets/steward/jwks/token
   allowedServiceAccounts: []
 
 # The steward-authz Rego policy bundle, for the services that evaluate access

@@ -6,7 +6,8 @@ name: checks
 # lint/template plus a pinned, checksum-checked kubeconform validation
 # in-line instead of calling the org's go.yml. `dco` and `secrets` are
 # unchanged. There are no other services' protos to pin, so proto-sync does
-# not apply here.
+# not apply here. `kind` installs the chart on a kind cluster with the
+# service images built from ci/kind/images.txt (job-kind.yaml).
 on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
@@ -27,6 +28,11 @@ jobs:
     permissions:
       contents: read
     uses: ./.github/workflows/job-helm.yaml
+  kind:
+    if: (github.event_name == 'pull_request' || github.event_name == 'merge_group') && github.event.pull_request.draft != true
+    permissions:
+      contents: read
+    uses: ./.github/workflows/job-kind.yaml
   dco:
     if: (github.event_name == 'pull_request' || github.event_name == 'merge_group') && github.event.pull_request.draft != true
     uses: Steward-GRC/.github/.github/workflows/dco.yml@main

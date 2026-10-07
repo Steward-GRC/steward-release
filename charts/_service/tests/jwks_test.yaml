@@ -1,0 +1,106 @@
+suite: JWKS discovery credentials
+templates:
+  - deployment.yaml
+set:
+  aliasName: example
+  image:
+    repository: registry.example.org/steward-example
+    tag: v0.0.0
+tests:
+  - it: gives an enabled callee a default-audience token and the cluster CA for the JWKS fetch
+    set:
+      workloadAuth:
+        callee: true
+        allowedServiceAccounts: [gateway]
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content: {name: WORKLOAD_OIDC_BEARER_FILE, value: /var/run/secrets/steward/jwks/token}
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content: {name: WORKLOAD_OIDC_CA_FILE, value: /var/run/secrets/steward/kube-ca/ca.crt}
+      - equal:
+          path: spec.template.spec.volumes
+          value:
+            - name: workload-identity
+              projected:
+                sources:
+                  - serviceAccountToken:
+                      path: jwks/token
+                      expirationSeconds: 3600
+                  - configMap:
+                      name: kube-root-ca.crt
+                      items:
+                        - key: ca.crt
+                          path: kube-ca/ca.crt
+      - equal:
+          path: spec.template.spec.containers[0].volumeMounts
+          value:
+            - name: workload-identity
+              mountPath: /var/run/secrets/steward
+              readOnly: true
+      - equal:
+          path: spec.template.spec.automountServiceAccountToken
+          value: false
+  - it: keeps the steward-audience caller token alongside the JWKS credentials
+    set:
+      workloadAuth:
+        caller: true
+        callee: true
+        allowedServiceAccounts: [gateway]
+    asserts:
+      - equal:
+          path: spec.template.spec.volumes[0].projected.sources
+          value:
+            - serviceAccountToken:
+                path: token
+                audience: steward
+                expirationSeconds: 3600
+            - serviceAccountToken:
+                path: jwks/token
+                expirationSeconds: 3600
+            - configMap:
+                name: kube-root-ca.crt
+                items:
+                  - key: ca.crt
+                    path: kube-ca/ca.crt
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content: {name: WORKLOAD_TOKEN_FILE, value: /var/run/secrets/steward/token}
+  - it: mounts only the caller token for a caller that isn't a callee
+    set:
+      workloadAuth:
+        caller: true
+    asserts:
+      - equal:
+          path: spec.template.spec.volumes[0].projected.sources
+          value:
+            - serviceAccountToken:
+                path: token
+                audience: steward
+                expirationSeconds: 3600
+  - it: mounts no JWKS credentials for a disabled callee
+    set:
+      workloadAuth:
+        callee: true
+        authMode: disabled
+    asserts:
+      - notExists:
+          path: spec.template.spec.volumes
+      - notExists:
+          path: spec.template.spec.containers[0].volumeMounts
+  - it: honours an explicit bearer file and CA file
+    set:
+      workloadAuth:
+        callee: true
+        allowedServiceAccounts: [gateway]
+        oidc:
+          caFile: /etc/issuer/ca.crt
+          bearerFile: /etc/issuer/token
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content: {name: WORKLOAD_OIDC_BEARER_FILE, value: /etc/issuer/token}
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content: {name: WORKLOAD_OIDC_CA_FILE, value: /etc/issuer/ca.crt}

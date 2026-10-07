@@ -1,0 +1,113 @@
+name: kind
+# Called by checks.yml as the `kind` job. Builds every service image from
+# the commit pinned in ci/kind/images.txt, installs the umbrella chart on a
+# kind cluster with minimal bring-your-own dependencies, and fails unless
+# every Deployment becomes Ready and the gateway's /readyz answers 200. The
+# template checks in job-helm.yaml can't catch a chart that renders but
+# can't run.
+#
+# Public repo: GitHub-hosted runners only. Images are built per service in
+# parallel jobs (one Go build each), handed to the install job as artifacts.
+on:
+  workflow_call:
+permissions:
+  contents: read
+env:
+  HELM_VERSION: v3.16.3
+  HELM_SHA256: f5355c79190951eed23c5432a3b920e071f4c00a64f75e077de0dd4cb7b294ea
+  KIND_VERSION: v0.33.0
+  KIND_SHA256: aee6151561422756b764a4ae28e7f44cda5af5a9eead3cc9985112b1de8d8e0d
+  KUBECTL_VERSION: v1.34.12
+  KUBECTL_SHA256: 90b7b9058ffeb5c10710bb1c73f541eaf426fb1b4e87df435db669de9a2564a2
+jobs:
+  plan:
+    name: Plan images
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      aliases: ${{ steps.list.outputs.aliases }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+      - name: List the pinned service images
+        id: list
+        run: |
+          set -euo pipefail
+          aliases=$(awk '!/^#/ && NF { print $1 }' ci/kind/images.txt | jq -R . | jq -cs .)
+          echo "aliases=${aliases}" >> "$GITHUB_OUTPUT"
+  images:
+    name: Build ${{ matrix.alias }}
+    needs: plan
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    strategy:
+      fail-fast: true
+      matrix:
+        alias: ${{ fromJSON(needs.plan.outputs.aliases) }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Build the image
+        env:
+          SAVE_DIR: ${{ runner.temp }}/images
+        run: ci/kind/build-image.sh "${{ matrix.alias }}" "${RUNNER_TEMP}/src"
+      - name: Upload the image
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
+        with:
+          name: image-${{ matrix.alias }}
+          path: ${{ runner.temp }}/images/${{ matrix.alias }}.tar
+          retention-days: 1
+          compression-level: 6
+  install:
+    name: Install on kind
+    needs: images
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install Helm, kind and kubectl (pinned, checksum-checked)
+        run: |
+          set -euo pipefail
+          curl -fsSL -o helm.tar.gz "https://get.helm.sh/helm-${HELM_VERSION}-linux-amd64.tar.gz"
+          echo "${HELM_SHA256}  helm.tar.gz" | sha256sum -c -
+          tar -xzf helm.tar.gz
+          sudo install linux-amd64/helm /usr/local/bin/helm
+          curl -fsSL -o kind "https://github.com/kubernetes-sigs/kind/releases/download/${KIND_VERSION}/kind-linux-amd64"
+          echo "${KIND_SHA256}  kind" | sha256sum -c -
+          sudo install kind /usr/local/bin/kind
+          curl -fsSL -o kubectl "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/amd64/kubectl"
+          echo "${KUBECTL_SHA256}  kubectl" | sha256sum -c -
+          sudo install kubectl /usr/local/bin/kubectl
+          helm version
+          kind version
+          kubectl version --client
+      - name: Download the images
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131  # v7.0.0
+        with:
+          pattern: image-*
+          merge-multiple: true
+          path: ${{ runner.temp }}/images
+      - name: Build the umbrella's dependencies
+        # Bugs5382/helm-postgres-ha has no published chart yet; the test
+        # installs the bring-your-own Postgres shape, so it is left out.
+        run: |
+          set -euo pipefail
+          mkdir -p "${RUNNER_TEMP}/umbrella"
+          cp -r Chart.yaml values*.yaml charts templates "${RUNNER_TEMP}/umbrella/"
+          yq -i 'del(.dependencies[] | select(.name == "postgres-ha"))' "${RUNNER_TEMP}/umbrella/Chart.yaml"
+          helm dependency build "${RUNNER_TEMP}/umbrella"
+      - name: Install the chart and check readiness
+        env:
+          IMAGE_DIR: ${{ runner.temp }}/images
+          CHART_DIR: ${{ runner.temp }}/umbrella
+          WORK_DIR: ${{ runner.temp }}/kind
+        run: |
+          mkdir -p "${WORK_DIR}"
+          ci/kind/run.sh

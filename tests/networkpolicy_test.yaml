@@ -1,0 +1,12 @@
+suite: umbrella caller lists
+templates:
+  - charts/core/templates/networkpolicy.yaml
+tests:
+  - it: admits every service that calls core
+    asserts:
+      - contains:
+          path: spec.ingress[0].from
+          content:
+            podSelector:
+              matchLabels:
+                app.kubernetes.io/name: steward-identity

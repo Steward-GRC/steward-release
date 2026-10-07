@@ -14,9 +14,10 @@ authentication wired in from the start, and health-checked probes.
   instance, replica count set by you (1 by default, a 3-member quorum in
   [`values-ha-example.yaml`](values-ha-example.yaml)); bring your own instead with
   [`values-byo-postgres-example.yaml`](values-byo-postgres-example.yaml).
-- **Service-to-service auth:** every call between services carries a projected,
-  audience-scoped service-account token, verified against the cluster's OIDC JWKS, with a
-  per-service caller allow-list and a `NetworkPolicy` in depth.
+- **Service-to-service auth:** calls carry a projected, audience-scoped service-account token,
+  verified against the cluster's OIDC JWKS with a per-service caller allow-list, and a
+  `NetworkPolicy` in depth. Not every service verifies tokens yet; see
+  [docs/service-to-service-auth.md](docs/service-to-service-auth.md) for which do.
 - **Health:** every service's readiness fails while a required dependency is down; liveness checks
   only the process.
 
@@ -44,7 +45,20 @@ helm template steward . -f values.yaml --namespace steward
 ```
 
 Pipe the template output to `kubeconform` (pinned in `.github/workflows/checks.yml`) to validate
-the rendered manifests without a cluster.
+the rendered manifests without a cluster. `task test` runs the helm-unittest suites.
+
+The install test ([`ci/kind/`](ci/kind)) builds every service image from the commit pinned in
+`ci/kind/images.txt`, installs the chart on a kind cluster with minimal bring-your-own
+dependencies, and fails unless every Deployment becomes Ready and the gateway's `/readyz` answers
+200. CI runs it on every pull request; locally:
+
+```bash
+for a in $(awk '!/^#/ && NF {print $1}' ci/kind/images.txt); do ci/kind/build-image.sh "$a"; done
+KIND_CLUSTER=steward-ci ci/kind/run.sh   # creates the cluster if needed; never deletes it
+```
+
+A re-run against the same cluster reuses the images already on its node and the Secrets it
+generated the first time, so its Postgres keeps accepting the service passwords.
 
 ## 🙏 Acknowledgements
 
