@@ -11,11 +11,25 @@ templates:
   - charts/web-admin/templates/deployment.yaml
   - templates/addresses.yaml
 tests:
-  - it: points identity at core and at itself (its admin CLI)
+  - it: points identity at core, workflow, obligations and itself (its admin CLI)
     template: charts/identity/templates/deployment.yaml
     asserts:
       - contains: &core {path: "spec.template.spec.containers[0].env", content: {name: CORE_GRPC_ADDR, value: "steward-core:9091"}}
       - contains: &identity {path: "spec.template.spec.containers[0].env", content: {name: IDENTITY_GRPC_ADDR, value: "steward-identity:9090"}}
+      - contains: {path: "spec.template.spec.containers[0].env", content: {name: WORKFLOW_GRPC_ADDR, value: "steward-workflow:9092"}}
+      - contains: {path: "spec.template.spec.containers[0].env", content: {name: OBLIGATIONS_GRPC_ADDR, value: "steward-obligations:9093"}}
+  - it: derives identity's workflow and obligations addresses from global.servicePorts
+    template: charts/identity/templates/deployment.yaml
+    set:
+      global:
+        servicePorts: {workflow: 9192, obligations: 9193}
+      workflow:
+        port: {number: 9192}
+      obligations:
+        port: {number: 9193}
+    asserts:
+      - contains: {path: "spec.template.spec.containers[0].env", content: {name: WORKFLOW_GRPC_ADDR, value: "steward-workflow:9192"}}
+      - contains: {path: "spec.template.spec.containers[0].env", content: {name: OBLIGATIONS_GRPC_ADDR, value: "steward-obligations:9193"}}
   - it: points workflow at identity and core
     template: charts/workflow/templates/deployment.yaml
     asserts: [{contains: *core}, {contains: *identity}]

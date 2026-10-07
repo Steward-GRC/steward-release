@@ -69,8 +69,8 @@ list: defence in depth. The actual enforcement is the token check above.
 |---|---|
 | `identity` | gateway, workflow, obligations, reporting, collab, identity (its own admin CLI, run in the identity pod) |
 | `core` | gateway, workflow, delivery, collab, obligations, identity |
-| `workflow` | gateway |
-| `obligations` | gateway |
+| `workflow` | gateway, identity (re-pointing approvals in an account merge, the pending-approval checks for a delete) |
+| `obligations` | gateway, identity (moving acknowledgements in an account merge) |
 | `audit` | gateway |
 | `delivery` | gateway, pdf-renderer (the renderer's Jobs fetch from delivery's internal HTTP port with a token the operator projects into each Job) |
 | `collab` | gateway |

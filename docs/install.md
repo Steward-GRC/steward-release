@@ -303,7 +303,8 @@ runtime switch does nothing against a release image that wasn't built with `DEV_
 ## Service addresses
 
 The chart gives every service the addresses of the services it calls (`CORE_GRPC_ADDR`,
-`IDENTITY_GRPC_ADDR`, the gateway's `STEWARD_<SERVICE>_ADDR`, the web apps' `GATEWAY_URL`), so a
+`IDENTITY_GRPC_ADDR`, identity's `WORKFLOW_GRPC_ADDR` and `OBLIGATIONS_GRPC_ADDR` for account
+merges and delete checks, the gateway's `STEWARD_<SERVICE>_ADDR`, the web apps' `GATEWAY_URL`), so a
 default install needs none in `env`. Each alias lists what it calls in `<service>.calls`; the chart
 builds `steward-<callee>:<port>` from the callee's Service name and its port in
 `global.servicePorts`.

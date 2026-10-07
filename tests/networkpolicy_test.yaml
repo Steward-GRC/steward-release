@@ -2,6 +2,8 @@ suite: umbrella caller lists
 templates:
   - charts/core/templates/networkpolicy.yaml
   - charts/identity/templates/networkpolicy.yaml
+  - charts/workflow/templates/networkpolicy.yaml
+  - charts/obligations/templates/networkpolicy.yaml
 tests:
   - it: admits every service that calls core
     template: charts/core/templates/networkpolicy.yaml
@@ -21,3 +23,15 @@ tests:
             podSelector:
               matchLabels:
                 app.kubernetes.io/name: steward-identity
+  - it: admits identity to workflow
+    template: charts/workflow/templates/networkpolicy.yaml
+    asserts:
+      - contains: &identityPeer
+          path: spec.ingress[0].from
+          content:
+            podSelector:
+              matchLabels:
+                app.kubernetes.io/name: steward-identity
+  - it: admits identity to obligations
+    template: charts/obligations/templates/networkpolicy.yaml
+    asserts: [{contains: *identityPeer}]

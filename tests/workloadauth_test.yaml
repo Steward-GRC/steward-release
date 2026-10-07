@@ -46,7 +46,7 @@ tests:
                     items:
                       - key: ca.crt
                         path: kube-ca/ca.crt
-  - it: gives workflow the verification block, gateway as its caller and a caller token
+  - it: gives workflow the verification block, gateway and identity as its callers and a caller token
     template: charts/workflow/templates/deployment.yaml
     asserts:
       - notContains: *noDisabled
@@ -54,11 +54,11 @@ tests:
       - contains: *caFile
       - contains: *bearerFile
       - contains: *tokenFile
-      - contains: &gatewayOnly
+      - contains: &gatewayAndIdentity
           path: spec.template.spec.containers[0].env
-          content: {name: WORKLOAD_ALLOWED_SERVICEACCOUNTS, value: steward/steward-gateway}
+          content: {name: WORKLOAD_ALLOWED_SERVICEACCOUNTS, value: "steward/steward-gateway,steward/steward-identity"}
       - equal: *callerAndJwksVolume
-  - it: gives obligations the verification block, gateway as its caller and a caller token
+  - it: gives obligations the verification block, gateway and identity as its callers and a caller token
     template: charts/obligations/templates/deployment.yaml
     asserts:
       - notContains: *noDisabled
@@ -66,7 +66,7 @@ tests:
       - contains: *caFile
       - contains: *bearerFile
       - contains: *tokenFile
-      - contains: *gatewayOnly
+      - contains: *gatewayAndIdentity
       - equal: *callerAndJwksVolume
   - it: gives audit the verification block and gateway as its caller, with no caller token
     template: charts/audit/templates/deployment.yaml
@@ -75,7 +75,9 @@ tests:
       - contains: *issuer
       - contains: *caFile
       - contains: *bearerFile
-      - contains: *gatewayOnly
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content: {name: WORKLOAD_ALLOWED_SERVICEACCOUNTS, value: steward/steward-gateway}
       - notContains: {path: "spec.template.spec.containers[0].env", content: {name: WORKLOAD_TOKEN_FILE}, any: true}
       - equal:
           path: spec.template.spec.volumes[0].projected.sources
