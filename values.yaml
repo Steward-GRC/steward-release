@@ -12,6 +12,16 @@ crds:
   # first install (needs cluster-admin). false: they must already exist.
   install: false
 
+# The Kubernetes Secret identity keeps OIDC client secrets in (and the
+# client secrets Polis issues). Identity writes and reads its keys; the
+# database never holds them. The chart creates it empty and keeps it on
+# uninstall, so back it up with the database. create: false means an
+# operator-made Secret of the same name (keep identity.rbac and
+# POLIS_SECRET_NAME in step if you rename it).
+identityPolisSecrets:
+  create: true
+  name: steward-identity-polis-secrets
+
 global:
   # Each service's main port, for the addresses the chart gives the services
   # that call it (`<alias>.calls`: steward-<alias>:<port>). Each must equal
@@ -44,6 +54,22 @@ identity:
   - {service: identity, env: IDENTITY_GRPC_ADDR}
   - {service: workflow, env: WORKFLOW_GRPC_ADDR}
   - {service: obligations, env: OBLIGATIONS_GRPC_ADDR}
+  # Identity reads and writes the OIDC client secrets in one Secret
+  # (identityPolisSecrets) and nothing else in the API.
+  automountServiceAccountToken: true
+  rbac:
+    rules:
+    - apiGroups: [""]
+      resources: [secrets]
+      resourceNames: [steward-identity-polis-secrets]
+      verbs: [get, update]
+  baseEnv:
+  - name: POLIS_SECRET_NAME
+    value: steward-identity-polis-secrets
+  - name: POLIS_SECRET_NAMESPACE
+    valueFrom:
+      fieldRef:
+        fieldPath: metadata.namespace
   podDisruptionBudget:
     enabled: true
     minAvailable: 1

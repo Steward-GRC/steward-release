@@ -95,6 +95,13 @@ chart only ever reads from them, never writes a plaintext credential of its own.
 [Service-to-service authentication](service-to-service-auth.md) for the workload-identity pieces,
 which need no Secret at all (they ride the cluster's own service-account tokens and OIDC issuer).
 
+One Secret the chart does create: `steward-identity-polis-secrets` (`identityPolisSecrets`), empty
+and with no `data` field, kept on uninstall. Identity writes each OIDC client secret an admin
+enters, and each client secret Polis issues, as a key of it; its database only names the key. An
+upgrade leaves the keys alone. Back it up with identity's database. With
+`identityPolisSecrets.create: false` an operator creates a Secret of that name instead, for example
+a SealedSecret holding keys an admin then names as `secretRef`.
+
 ## Custom resources and API access
 
 The chart ships two CustomResourceDefinitions: `PdfRender` (`renders.steward-grc.com`, with
@@ -114,7 +121,7 @@ kubectl apply --server-side -f charts/_pdf-renderer-crds/crds/ -f charts/_ai-crd
 On a cluster this release owns alone, `--set crds.install=true` lets `helm install` install them
 from `crds/` instead (first install only; Helm never upgrades or deletes CRDs).
 
-Every pod runs with `automountServiceAccountToken: false` except the four that call the Kubernetes
+Every pod runs with `automountServiceAccountToken: false` except the five that call the Kubernetes
 API. Each has a namespaced Role holding only the calls its code makes, and nothing cluster-wide:
 
 | Workload (service account) | Why | Role |
@@ -123,6 +130,7 @@ API. Each has a namespaced Role holding only the calls its code makes, and nothi
 | ai operator (`steward-ai-operator`) | runs PolicyAIJobs, deletes finished ones, schedules the nightly relationship job | policyaijobs: get, list, watch, create, delete; policyaijobs/status: update; events: create, patch; leases: create, then get and update on its own lease only |
 | delivery (`steward-delivery`) | creates PdfRenders for PDF export and watches their status | pdfrenders: create, list, watch |
 | ai (`steward-ai`) | creates and reads PolicyAIJobs | policyaijobs: get, create |
+| identity (`steward-identity`) | keeps OIDC client secrets out of its database | secrets: get, update on `steward-identity-polis-secrets` only |
 
 pdf-renderer's own RBAC markers grant more (every verb on pdfrenders, update, patch and delete on
 Jobs); the chart grants only what its controller calls. Each operator watches its own namespace
