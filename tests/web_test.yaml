@@ -1,0 +1,55 @@
+suite: umbrella web apps
+templates:
+  - charts/web-staff/templates/deployment.yaml
+  - charts/web-staff/templates/service.yaml
+  - charts/web-staff/templates/ingress.yaml
+  - charts/web-admin/templates/deployment.yaml
+  - charts/web-admin/templates/service.yaml
+  - charts/web-admin/templates/ingress.yaml
+tests:
+  - it: installs the staff app from its own image
+    template: charts/web-staff/templates/deployment.yaml
+    asserts:
+      - equal: {path: metadata.name, value: steward-web-staff}
+      - equal: {path: "spec.template.spec.containers[0].image", value: "ghcr.io/steward-grc/steward-web-staff:v0.1.0"}
+  - it: installs the admin app from its own image
+    template: charts/web-admin/templates/deployment.yaml
+    asserts:
+      - equal: {path: metadata.name, value: steward-web-admin}
+      - equal: {path: "spec.template.spec.containers[0].image", value: "ghcr.io/steward-grc/steward-web-admin:v0.1.0"}
+  - it: points both apps at the gateway's GraphQL endpoint and probes them on their own port
+    template: charts/web-staff/templates/deployment.yaml
+    asserts: &webapp
+      - contains: {path: "spec.template.spec.containers[0].env", content: {name: GATEWAY_URL, value: "http://steward-gateway:8080/query"}}
+      - contains: {path: "spec.template.spec.containers[0].env", content: {name: PORT, value: "3000"}}
+      - equal: {path: "spec.template.spec.containers[0].readinessProbe.httpGet", value: {path: /readyz, port: http}}
+      - equal: {path: "spec.template.spec.containers[0].livenessProbe.httpGet", value: {path: /livez, port: http}}
+      - equal: {path: "spec.template.spec.containers[0].ports", value: [{name: http, containerPort: 3000}]}
+      # The image's own user (steward, 1001), not the Go images' nonroot.
+      - equal: {path: spec.template.spec.securityContext.runAsUser, value: 1001}
+      - equal: {path: spec.template.spec.securityContext.runAsGroup, value: 1001}
+  - it: gives the admin app the same wiring
+    template: charts/web-admin/templates/deployment.yaml
+    asserts: *webapp
+  - it: gives each app its own Service on port 3000
+    template: charts/web-admin/templates/service.yaml
+    asserts:
+      - equal: {path: metadata.name, value: steward-web-admin}
+      - equal: {path: spec.ports, value: [{name: http, port: 3000, targetPort: 3000}]}
+  - it: exposes neither app by default
+    template: charts/web-staff/templates/ingress.yaml
+    asserts:
+      - hasDocuments: {count: 0}
+  - it: exposes the admin app on its own host when asked
+    template: charts/web-admin/templates/ingress.yaml
+    set:
+      web-admin:
+        ingress:
+          enabled: true
+          hosts:
+            - host: admin.example.org
+              paths:
+                - {path: /, pathType: Prefix}
+    asserts:
+      - equal: {path: "spec.rules[0].host", value: admin.example.org}
+      - equal: {path: "spec.rules[0].http.paths[0].backend.service.name", value: steward-web-admin}

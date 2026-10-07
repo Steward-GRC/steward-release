@@ -1,0 +1,45 @@
+{{/*
+An optional Ingress to the alias's main port, for the apps a browser reaches
+(the web apps). Off by default; namespaced, using the cluster's ingress
+controller and its IngressClass (or the cluster default when className is
+empty). TLS Secrets are the operator's, by name.
+*/}}
+{{- if .Values.ingress.enabled }}
+{{- if not .Values.ingress.hosts }}
+{{- fail (printf "%s: ingress.enabled needs at least one ingress.hosts entry" (include "service-chart.fullname" .)) }}
+{{- end }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "service-chart.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "service-chart.labels" . | nindent 4 }}
+  {{- with .Values.ingress.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- with .Values.ingress.className }}
+  ingressClassName: {{ . }}
+  {{- end }}
+  {{- with .Values.ingress.tls }}
+  tls:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  rules:
+    {{- range .Values.ingress.hosts }}
+    - host: {{ .host | quote }}
+      http:
+        paths:
+          {{- range .paths }}
+          - path: {{ .path }}
+            pathType: {{ .pathType | default "Prefix" }}
+            backend:
+              service:
+                name: {{ include "service-chart.fullname" $ }}
+                port:
+                  number: {{ $.Values.port.number }}
+          {{- end }}
+    {{- end }}
+{{- end }}

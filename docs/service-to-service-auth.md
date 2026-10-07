@@ -80,7 +80,7 @@ list: defence in depth. The actual enforcement is the token check above.
 Each callee enforces its list with the token check; its NetworkPolicy, rendered from the same list,
 is defence in depth.
 
-`gateway` has no caller list of its own here: its inbound traffic is the web app over the
+`gateway` has no caller list of its own here: its inbound traffic is the web apps over the
 browser-origin edge (session and CSRF protected, a different mechanism), not another service's
 workload token. `gateway` is still a **caller** to every service above.
 

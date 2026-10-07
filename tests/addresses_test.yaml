@@ -7,7 +7,8 @@ templates:
   - charts/collab/templates/deployment.yaml
   - charts/reporting/templates/deployment.yaml
   - charts/gateway/templates/deployment.yaml
-  - charts/web/templates/deployment.yaml
+  - charts/web-staff/templates/deployment.yaml
+  - charts/web-admin/templates/deployment.yaml
   - templates/addresses.yaml
 tests:
   - it: points identity at core and at itself (its admin CLI)
@@ -42,10 +43,13 @@ tests:
       - contains: {path: "spec.template.spec.containers[0].env", content: {name: STEWARD_COLLAB_ADDR, value: "steward-collab:9096"}}
       - contains: {path: "spec.template.spec.containers[0].env", content: {name: STEWARD_AI_ADDR, value: "steward-ai:9097"}}
       - contains: {path: "spec.template.spec.containers[0].env", content: {name: STEWARD_REPORTING_ADDR, value: "steward-reporting:9098"}}
-  - it: points web at the gateway's GraphQL endpoint
-    template: charts/web/templates/deployment.yaml
+  - it: points the staff web app at the gateway's GraphQL endpoint
+    template: charts/web-staff/templates/deployment.yaml
     asserts:
-      - contains: {path: "spec.template.spec.containers[0].env", content: {name: GATEWAY_URL, value: "http://steward-gateway:8080/query"}}
+      - contains: &gatewayUrl {path: "spec.template.spec.containers[0].env", content: {name: GATEWAY_URL, value: "http://steward-gateway:8080/query"}}
+  - it: points the admin web app at the gateway's GraphQL endpoint
+    template: charts/web-admin/templates/deployment.yaml
+    asserts: [{contains: *gatewayUrl}]
   - it: fails the render when a service's port and its address port disagree
     template: templates/addresses.yaml
     set:

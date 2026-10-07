@@ -57,6 +57,16 @@ autoscaling:
 service:
   enabled: true
 
+# An Ingress to the main port, for an app a browser reaches. Off by default.
+# hosts: [{host, paths: [{path, pathType}]}]; tls: [{hosts, secretName}] (an
+# existing Secret); an empty className uses the cluster's default class.
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  hosts: []
+  tls: []
+
 serviceAccount:
   create: true
   # Empty means steward-<aliasName>.

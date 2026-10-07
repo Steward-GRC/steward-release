@@ -40,8 +40,11 @@ reporting:
 gateway:
   replicaCount: 3
 
-web:
+web-staff:
   replicaCount: 3
+
+web-admin:
+  replicaCount: 2
 
 # One Bugs5382/helm-postgres-ha instance per data-owning service, each at a
 # 3-member quorum (the chart's own default).

@@ -1,0 +1,71 @@
+suite: ingress
+templates:
+  - ingress.yaml
+set:
+  aliasName: example
+  image:
+    repository: registry.example.org/steward-example
+    tag: v0.0.0
+  port:
+    name: http
+    number: 3000
+tests:
+  - it: renders no Ingress by default
+    asserts:
+      - hasDocuments: {count: 0}
+  - it: routes each host's paths to the alias's main port
+    set:
+      ingress:
+        enabled: true
+        className: example-class
+        annotations:
+          example.org/annotation: "on"
+        hosts:
+          - host: app.example.org
+            paths:
+              - {path: /, pathType: Prefix}
+        tls:
+          - hosts: [app.example.org]
+            secretName: app-example-tls
+    asserts:
+      - isKind: {of: Ingress}
+      - equal: {path: metadata.name, value: steward-example}
+      - equal: {path: metadata.namespace, value: NAMESPACE}
+      - equal: {path: "metadata.annotations[\"example.org/annotation\"]", value: "on"}
+      - equal: {path: spec.ingressClassName, value: example-class}
+      - equal:
+          path: spec.rules
+          value:
+            - host: app.example.org
+              http:
+                paths:
+                  - path: /
+                    pathType: Prefix
+                    backend:
+                      service:
+                        name: steward-example
+                        port:
+                          number: 3000
+      - equal:
+          path: spec.tls
+          value:
+            - hosts: [app.example.org]
+              secretName: app-example-tls
+  - it: leaves the class to the cluster's default when none is set
+    set:
+      ingress:
+        enabled: true
+        hosts:
+          - host: app.example.org
+            paths:
+              - {path: /, pathType: Prefix}
+    asserts:
+      - notExists: {path: spec.ingressClassName}
+      - notExists: {path: spec.tls}
+  - it: fails without a host
+    set:
+      ingress:
+        enabled: true
+    asserts:
+      - failedTemplate:
+          errorPattern: "steward-example: ingress.enabled needs at least one ingress.hosts entry"

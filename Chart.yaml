@@ -68,10 +68,15 @@ dependencies:
     repository: "file://charts/_service"
     condition: gateway.enabled
   - name: service-chart
-    alias: web
+    alias: web-staff
     version: 0.1.0
     repository: "file://charts/_service"
-    condition: web.enabled
+    condition: web-staff.enabled
+  - name: service-chart
+    alias: web-admin
+    version: 0.1.0
+    repository: "file://charts/_service"
+    condition: web-admin.enabled
 
   # ---------------------------------------------------------------------------
   # The services' CustomResourceDefinitions, vendored at a pinned commit

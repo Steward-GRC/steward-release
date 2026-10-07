@@ -47,7 +47,7 @@ Steward install, alongside the appliance.
 ├── values-shared-cluster-example.yaml  managed Postgres TLS from the cluster's existing issuer
 ├── charts/
 │   ├── _service/               the reusable chart every service alias composes
-│   │   ├── templates/          deployment, service, hpa, pdb, serviceaccount, role, networkpolicy
+│   │   ├── templates/          deployment, service, hpa, pdb, serviceaccount, role, networkpolicy, ingress
 │   │   └── tests/              helm-unittest suites for the reusable chart
 │   ├── _pdf-renderer-crds/     the PdfRender CRD, vendored (crds/ only)
 │   └── _ai-crds/               the PolicyAIJob CRD, vendored (crds/ only)
