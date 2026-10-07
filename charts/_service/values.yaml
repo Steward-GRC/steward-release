@@ -66,6 +66,12 @@ ingress:
   annotations: {}
   hosts: []
   tls: []
+  # Sets X-Steward-Edge: public on every request this Ingress forwards (an
+  # ingress-nginx configuration-snippet annotation), so gateway's
+  # MFA_ENFORCE=edge can tell a public sign-in from an internal one. An
+  # operator's own ingress.annotations entry of the same name always wins;
+  # turn this off for a different ingress controller's own equivalent.
+  edgeHeader: true
 
 serviceAccount:
   create: true

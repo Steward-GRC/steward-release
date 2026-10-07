@@ -583,6 +583,13 @@ gateway:
   - {service: collab, env: STEWARD_COLLAB_ADDR}
   - {service: ai, env: STEWARD_AI_ADDR}
   - {service: reporting, env: STEWARD_REPORTING_ADDR}
+  # A visible, overridable default equal to gateway's own (internal/config):
+  # MFA_ENFORCE=edge asks a sign-in for a second factor only when it carries
+  # the public edge's header (the web apps' Ingress sets it; edgeHeader
+  # above). Set to always or never to change the enforcement itself.
+  env:
+  - name: MFA_ENFORCE
+    value: edge
   # gateway serves /livez and /readyz on its one HTTP port.
   probePort: 8080
   podDisruptionBudget:

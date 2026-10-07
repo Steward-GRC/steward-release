@@ -8,6 +8,18 @@ empty). TLS Secrets are the operator's, by name.
 {{- if not .Values.ingress.hosts }}
 {{- fail (printf "%s: ingress.enabled needs at least one ingress.hosts entry" (include "service-chart.fullname" .)) }}
 {{- end }}
+{{- /*
+edgeHeader marks every request this Ingress forwards with X-Steward-Edge:
+public, the header gateway's MFA_ENFORCE=edge (its own default) needs to ask
+a signed-in user for a second factor. Assumes an ingress-nginx controller; an
+operator's own annotation of the same name always wins, and edgeHeader: false
+turns this off for a different controller's own equivalent.
+*/}}
+{{- $autoAnnotations := dict }}
+{{- if .Values.ingress.edgeHeader }}
+{{- $autoAnnotations = dict "nginx.ingress.kubernetes.io/configuration-snippet" "proxy_set_header X-Steward-Edge \"public\";\n" }}
+{{- end }}
+{{- $annotations := merge (deepCopy (.Values.ingress.annotations | default dict)) $autoAnnotations }}
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -15,7 +27,7 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     {{- include "service-chart.labels" . | nindent 4 }}
-  {{- with .Values.ingress.annotations }}
+  {{- with $annotations }}
   annotations:
     {{- toYaml . | nindent 4 }}
   {{- end }}

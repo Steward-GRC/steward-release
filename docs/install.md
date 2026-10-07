@@ -265,6 +265,18 @@ web-admin:
 
 Each app's origin must also be in the gateway's allowed origins (its `ALLOWED_ORIGINS` setting).
 
+### Second-factor enforcement at the public edge
+
+gateway's `MFA_ENFORCE` (a value in `values.yaml`, default `edge`, matching gateway's own
+default) asks a signed-in user for a second factor only when the sign-in carries the header the
+public edge is supposed to set (`X-Steward-Edge: public`), which the web apps forward to gateway
+when it's present on the incoming request. Each app's `ingress.edgeHeader` (default `true` when
+that app's Ingress is enabled) sets that header through an ingress-nginx
+`configuration-snippet` annotation; a cluster running a different ingress controller needs its
+own equivalent annotation in that app's `ingress.annotations` instead, with `edgeHeader: false` so
+the two don't collide. Set `gateway.env`'s `MFA_ENFORCE` entry to `always` or `never` to change the
+enforcement itself.
+
 ## Service addresses
 
 The chart gives every service the addresses of the services it calls (`CORE_GRPC_ADDR`,
