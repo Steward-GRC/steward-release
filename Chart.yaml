@@ -75,17 +75,18 @@ dependencies:
 
   # ---------------------------------------------------------------------------
   # The services' CustomResourceDefinitions, vendored at a pinned commit
-  # (scripts/crds-upstream.txt; CI checks them against upstream). Each ships
-  # with the service that owns its controller.
+  # (scripts/crds-upstream.txt; CI checks them against upstream). CRDs are
+  # cluster-scoped, so they install only with crds.install=true; by default
+  # the cluster already has them (docs/install.md).
   # ---------------------------------------------------------------------------
   - name: pdf-renderer-crds
     version: 0.1.0
     repository: "file://charts/_pdf-renderer-crds"
-    condition: pdf-renderer.enabled
+    condition: crds.install
   - name: ai-crds
     version: 0.1.0
     repository: "file://charts/_ai-crds"
-    condition: ai.enabled
+    condition: crds.install
 
   # ---------------------------------------------------------------------------
   # Bugs5382/helm-postgres-ha — one instance per data-owning service, never

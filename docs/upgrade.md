@@ -23,9 +23,9 @@ helm upgrade steward . -f values.yaml [-f values-ha-example.yaml | -f values-byo
   planned path for `core`, once every caller presents a token) is itself an upgrade: do it only
   after confirming every service in that service's `allowedServiceAccounts` list already sends a
   token (check each caller's own `workloadAuth.caller: true` is live first).
-- **CRDs:** Helm installs the chart's CustomResourceDefinitions on first install only and never
-  upgrades or deletes them. When an upgrade bumps a pin in `scripts/crds-upstream.txt`, apply the
-  new CRDs first: `kubectl apply --server-side -f charts/_pdf-renderer-crds/crds/ -f
+- **CRDs:** the chart installs its CustomResourceDefinitions only with `crds.install: true`, and
+  then on first install only; Helm never upgrades or deletes them. When an upgrade bumps a pin in
+  `scripts/crds-upstream.txt`, apply the new CRDs first (as cluster-admin, either way): `kubectl apply --server-side -f charts/_pdf-renderer-crds/crds/ -f
   charts/_ai-crds/crds/`.
 - **Rollback:** `helm rollback steward <revision> --namespace steward`. A managed Postgres instance
   is not rolled back by this (its own chart's upgrade history is separate); a schema change that

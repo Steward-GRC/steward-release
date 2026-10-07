@@ -44,13 +44,14 @@ Steward install, alongside the appliance.
 ├── Chart.yaml                 the umbrella chart: one alias per Steward service
 ├── values.yaml                per-service defaults
 ├── values-ha-example.yaml     documents a 3-replica Postgres + multi-replica services install
+├── values-shared-cluster-example.yaml  managed Postgres TLS from the cluster's existing issuer
 ├── charts/
 │   ├── _service/               the reusable chart every service alias composes
 │   │   ├── templates/          deployment, service, hpa, pdb, serviceaccount, role, networkpolicy
 │   │   └── tests/              helm-unittest suites for the reusable chart
 │   ├── _pdf-renderer-crds/     the PdfRender CRD, vendored (crds/ only)
 │   └── _ai-crds/               the PolicyAIJob CRD, vendored (crds/ only)
-├── scripts/                   sync-crds.sh and the CRD pins it reads (crds-upstream.txt)
+├── scripts/                   sync-crds.sh, its CRD pins (crds-upstream.txt), check-cluster-scoped.sh
 ├── ci/kind/                   the kind install test: image pins, dependencies, values, run.sh
 ├── templates/NOTES.txt        the umbrella's install notes (required Postgres extensions)
 ├── tests/                     helm-unittest suites for the umbrella's per-service wiring
@@ -83,6 +84,9 @@ Steward install, alongside the appliance.
 - No generated code here. `helm template` output is never committed; CI renders it fresh from
   `values.yaml`, `values-ha-example.yaml` and a bring-your-own-Postgres example, each piped to a
   pinned, checksum-checked `kubeconform`.
+- Default values install no cluster-scoped object; every one is an opt-in. CI renders with
+  `--include-crds` and `scripts/check-cluster-scoped.sh` fails on anything not expected, so a new
+  cluster-scoped object needs a values switch (default off) and an opt-in check in `job-helm.yaml`.
 - The install test (`ci/kind/run.sh`, CI job `kind`) installs the chart on kind with the service
   images built from the commits pinned in `ci/kind/images.txt`. Bump a pin to test newer service
   code; a chart change that renders but can't run fails there.

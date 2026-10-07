@@ -4,6 +4,14 @@
 # each service repo publishes real images; the Harbor/GHCR path and the exact
 # tag are an operator concern at install time, not a default this chart ships.
 
+# Cluster-scoped objects. The chart installs none by default: on a shared
+# cluster they belong to the cluster, not to one release, so each one is an
+# explicit opt-in with a use-the-existing-one path (docs/install.md).
+crds:
+  # true: helm installs the PdfRender and PolicyAIJob CRDs from crds/ on
+  # first install (needs cluster-admin). false: they must already exist.
+  install: false
+
 identity:
   enabled: true
   aliasName: identity
@@ -462,6 +470,14 @@ web:
 # is user-set: 1 here, 3 (a quorum) in values-ha-example.yaml. Set
 # `<service>-postgres.enabled: false` plus the service's own
 # `<service>.postgres.external.*` to bring your own Postgres instead.
+#
+# TLS: each instance uses cert-manager (`tls.certManager.enabled`, on by
+# default) with a namespaced self-signed CA Issuer of its own. To sign with
+# the cluster's existing Issuer or ClusterIssuer, set
+# `<service>-postgres.tls.certManager.issuerRef` ({kind, name}); to
+# skip cert-manager, set `tls.certManager.enabled: false` and
+# `tls.existingSecret`. values-shared-cluster-example.yaml does the first
+# for every instance. No instance creates a cluster-scoped object.
 # ---------------------------------------------------------------------------
 identity-postgres:
   enabled: true

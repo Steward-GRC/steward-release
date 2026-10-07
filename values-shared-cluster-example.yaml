@@ -1,0 +1,76 @@
+# Shared cluster: sign every managed Postgres instance's certificates with the
+# cluster's existing cert-manager issuer instead of a per-instance
+# self-signed CA. Layer this on top of values.yaml:
+#
+#   helm install steward . -f values.yaml -f values-shared-cluster-example.yaml \
+#     --namespace steward
+#
+# The chart creates no Issuer or ClusterIssuer and no CRD here. Install the
+# PdfRender and PolicyAIJob CRDs once per cluster first (docs/install.md), or
+# set crds.install: true if this release may own them.
+#
+# Use kind: Issuer for an issuer in the release namespace. The group defaults
+# to cert-manager's own.
+
+identity-postgres:
+  tls:
+    certManager:
+      issuerRef:
+        kind: ClusterIssuer
+        name: internal-ca
+
+core-postgres:
+  tls:
+    certManager:
+      issuerRef:
+        kind: ClusterIssuer
+        name: internal-ca
+
+workflow-postgres:
+  tls:
+    certManager:
+      issuerRef:
+        kind: ClusterIssuer
+        name: internal-ca
+
+obligations-postgres:
+  tls:
+    certManager:
+      issuerRef:
+        kind: ClusterIssuer
+        name: internal-ca
+
+audit-postgres:
+  tls:
+    certManager:
+      issuerRef:
+        kind: ClusterIssuer
+        name: internal-ca
+
+delivery-postgres:
+  tls:
+    certManager:
+      issuerRef:
+        kind: ClusterIssuer
+        name: internal-ca
+
+collab-postgres:
+  tls:
+    certManager:
+      issuerRef:
+        kind: ClusterIssuer
+        name: internal-ca
+
+ai-postgres:
+  tls:
+    certManager:
+      issuerRef:
+        kind: ClusterIssuer
+        name: internal-ca
+
+reporting-postgres:
+  tls:
+    certManager:
+      issuerRef:
+        kind: ClusterIssuer
+        name: internal-ca

@@ -11,11 +11,15 @@ chart when you already run Kubernetes and want to bring your own.
    override `<service>.workloadAuth.oidc.issuer`/`jwksUrl` in `charts/_service/values.yaml` for a
    cluster with a different `--service-account-issuer`).
 2. A namespace for the release (the examples below use `steward`).
-3. For a managed Postgres install (the default): nothing to create ahead of time. The
-   `Bugs5382/helm-postgres-ha` dependency provisions its own credentials Secrets.
-4. For a bring-your-own Postgres install (see below): create each service's password Secret first,
+3. The PdfRender and PolicyAIJob CRDs, installed once per cluster by a cluster-admin (see "Custom
+   resources and API access"), unless you set `crds.install: true`.
+4. For a managed Postgres install (the default): cert-manager running in the cluster (each
+   instance's TLS; see "Cluster-scoped objects" for the issuer and the Secret-only path), and
+   nothing else to create ahead of time. The `Bugs5382/helm-postgres-ha` dependency provisions
+   its own credentials Secrets.
+5. For a bring-your-own Postgres install (see below): create each service's password Secret first,
    in the install namespace, before `helm install`.
-5. The image repository and tag for each service, once its own repo publishes a release. The
+6. The image repository and tag for each service, once its own repo publishes a release. The
    defaults in `values.yaml` are placeholders (`ghcr.io/steward-grc/steward-<service>:v0.1.0`);
    override them with `--set <service>.image.tag=...` or your own values file.
 
@@ -93,12 +97,22 @@ which need no Secret at all (they ride the cluster's own service-account tokens 
 
 ## Custom resources and API access
 
-The chart ships two CustomResourceDefinitions in its `crds/` (installed by `helm install` before
-anything else): `PdfRender` (`renders.steward-grc.com`, with pdf-renderer) and `PolicyAIJob`
-(`ai.steward-grc.com`, with ai). They are vendored from each service's generated manifest at a
-pinned commit listed in `scripts/crds-upstream.txt` (minus the controller-gen version annotation);
-`scripts/sync-crds.sh` refreshes them and CI fails if a vendored copy drifts from its pin. Installing CRDs needs cluster-admin (or an account
-allowed to create CustomResourceDefinitions).
+The chart ships two CustomResourceDefinitions: `PdfRender` (`renders.steward-grc.com`, with
+pdf-renderer) and `PolicyAIJob` (`ai.steward-grc.com`, with ai). They are vendored from each
+service's generated manifest at a pinned commit listed in `scripts/crds-upstream.txt` (minus the
+controller-gen version annotation); `scripts/sync-crds.sh` refreshes them and CI fails if a
+vendored copy drifts from its pin.
+
+CRDs are cluster-scoped, so the chart doesn't install them by default (see "Cluster-scoped
+objects" below). Install them once per cluster, as cluster-admin, before the first
+`helm install`:
+
+```bash
+kubectl apply --server-side -f charts/_pdf-renderer-crds/crds/ -f charts/_ai-crds/crds/
+```
+
+On a cluster this release owns alone, `--set crds.install=true` lets `helm install` install them
+from `crds/` instead (first install only; Helm never upgrades or deletes CRDs).
 
 Every pod runs with `automountServiceAccountToken: false` except the three services that call the
 Kubernetes API, each with a namespaced Role written from its own needs and nothing cluster-wide:
@@ -113,6 +127,29 @@ The render Jobs run as `steward-pdf-renderer`, a service account with no RBAC an
 is the caller name delivery's allow-list expects on the HTML fetch. Set the Jobs' image with
 `pdf-renderer.baseEnv` `RENDERER_IMAGE` (or an `env` entry of the same name), and create the
 object-storage Secret the Jobs read (`steward-pdf-renderer-s3` by default) before the first export.
+
+## Cluster-scoped objects
+
+With default values the chart creates no cluster-scoped object: no CRD, ClusterRole,
+ClusterRoleBinding, admission webhook, ClusterIssuer, IngressClass, StorageClass or
+PriorityClass. RBAC is namespaced Roles and RoleBindings only. Anything cluster-scoped is shared
+by every release on the cluster, so it comes from the cluster and each one is an explicit opt-in.
+CI renders the defaults and both examples with `--include-crds` and fails on any cluster-scoped
+kind (`scripts/check-cluster-scoped.sh`).
+
+| Object | Default | Use the existing one | Opt in |
+|---|---|---|---|
+| PdfRender and PolicyAIJob CRDs | not installed | pre-install with `kubectl apply` (above) | `crds.install: true` |
+| cert-manager Issuer for managed Postgres TLS | a namespaced self-signed CA Issuer per instance | `<service>-postgres.tls.certManager.issuerRef: {kind: Issuer or ClusterIssuer, name}` | none: the chart never creates a ClusterIssuer |
+
+cert-manager itself, an ingress controller and any IngressClass come from the cluster; the chart
+installs none of them. Each managed Postgres instance signs its certificates through cert-manager
+by default. To use the cluster's existing issuer for all of them, layer
+[`values-shared-cluster-example.yaml`](../values-shared-cluster-example.yaml) (a ClusterIssuer
+named `internal-ca`; change the name, or use `kind: Issuer` for one in the release namespace). To
+skip cert-manager, set `<service>-postgres.tls.certManager.enabled: false` and
+`<service>-postgres.tls.existingSecret` to a Secret with `tls.crt`, `tls.key` and `ca.crt` (see
+the helm-postgres-ha README for the DNS names it needs).
 
 ## Health probes
 
