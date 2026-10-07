@@ -143,6 +143,12 @@ spec:
             {{- range .Values.env }}
             {{- $overridden = append $overridden .name }}
             {{- end }}
+            {{- range (include "service-chart.callAddresses" . | fromJsonArray) }}
+            {{- if not (has .name $overridden) }}
+            - name: {{ .name }}
+              value: {{ .value | quote }}
+            {{- end }}
+            {{- end }}
             {{- range .Values.baseEnv }}
             {{- if not (has .name $overridden) }}
             - name: {{ .name }}

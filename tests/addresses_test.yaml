@@ -1,0 +1,57 @@
+suite: umbrella inter-service addresses
+templates:
+  - charts/identity/templates/deployment.yaml
+  - charts/workflow/templates/deployment.yaml
+  - charts/obligations/templates/deployment.yaml
+  - charts/delivery/templates/deployment.yaml
+  - charts/collab/templates/deployment.yaml
+  - charts/reporting/templates/deployment.yaml
+  - charts/gateway/templates/deployment.yaml
+  - charts/web/templates/deployment.yaml
+  - templates/addresses.yaml
+tests:
+  - it: points identity at core and at itself (its admin CLI)
+    template: charts/identity/templates/deployment.yaml
+    asserts:
+      - contains: &core {path: "spec.template.spec.containers[0].env", content: {name: CORE_GRPC_ADDR, value: "steward-core:9091"}}
+      - contains: &identity {path: "spec.template.spec.containers[0].env", content: {name: IDENTITY_GRPC_ADDR, value: "steward-identity:9090"}}
+  - it: points workflow at identity and core
+    template: charts/workflow/templates/deployment.yaml
+    asserts: [{contains: *core}, {contains: *identity}]
+  - it: points obligations at identity and core
+    template: charts/obligations/templates/deployment.yaml
+    asserts: [{contains: *core}, {contains: *identity}]
+  - it: points collab at identity and core
+    template: charts/collab/templates/deployment.yaml
+    asserts: [{contains: *core}, {contains: *identity}]
+  - it: points delivery at core
+    template: charts/delivery/templates/deployment.yaml
+    asserts: [{contains: *core}]
+  - it: points reporting at identity
+    template: charts/reporting/templates/deployment.yaml
+    asserts: [{contains: *identity}]
+  - it: points the gateway at every backend
+    template: charts/gateway/templates/deployment.yaml
+    asserts:
+      - contains: {path: "spec.template.spec.containers[0].env", content: {name: STEWARD_IDENTITY_ADDR, value: "steward-identity:9090"}}
+      - contains: {path: "spec.template.spec.containers[0].env", content: {name: STEWARD_CORE_ADDR, value: "steward-core:9091"}}
+      - contains: {path: "spec.template.spec.containers[0].env", content: {name: STEWARD_WORKFLOW_ADDR, value: "steward-workflow:9092"}}
+      - contains: {path: "spec.template.spec.containers[0].env", content: {name: STEWARD_OBLIGATIONS_ADDR, value: "steward-obligations:9093"}}
+      - contains: {path: "spec.template.spec.containers[0].env", content: {name: STEWARD_AUDIT_ADDR, value: "steward-audit:9094"}}
+      - contains: {path: "spec.template.spec.containers[0].env", content: {name: STEWARD_DELIVERY_ADDR, value: "steward-delivery:9095"}}
+      - contains: {path: "spec.template.spec.containers[0].env", content: {name: STEWARD_COLLAB_ADDR, value: "steward-collab:9096"}}
+      - contains: {path: "spec.template.spec.containers[0].env", content: {name: STEWARD_AI_ADDR, value: "steward-ai:9097"}}
+      - contains: {path: "spec.template.spec.containers[0].env", content: {name: STEWARD_REPORTING_ADDR, value: "steward-reporting:9098"}}
+  - it: points web at the gateway's GraphQL endpoint
+    template: charts/web/templates/deployment.yaml
+    asserts:
+      - contains: {path: "spec.template.spec.containers[0].env", content: {name: GATEWAY_URL, value: "http://steward-gateway:8080/query"}}
+  - it: fails the render when a service's port and its address port disagree
+    template: templates/addresses.yaml
+    set:
+      core:
+        port:
+          number: 9191
+    asserts:
+      - failedTemplate:
+          errorPattern: "global.servicePorts.core is 9091 but core.port.number is 9191"

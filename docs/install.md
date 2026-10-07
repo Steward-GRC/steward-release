@@ -170,6 +170,16 @@ The main port's number reaches the service in the variable `<service>.port.env` 
 `GRPC_PORT` for the Go services, `METRICS_PORT` for pdf-renderer, `PORT` for web, and none for the
 gateway, whose default listen address already matches its 8080.
 
+## Service addresses
+
+The chart gives every service the addresses of the services it calls (`CORE_GRPC_ADDR`,
+`IDENTITY_GRPC_ADDR`, the gateway's `STEWARD_<SERVICE>_ADDR`, web's `GATEWAY_URL`), so a default
+install needs none in `env`. Each alias lists what it calls in `<service>.calls`; the chart builds
+`steward-<callee>:<port>` from the callee's Service name and its port in `global.servicePorts`.
+Each `global.servicePorts` entry must equal that alias's `port.number`, and the render fails when
+they differ, so a port change sets both. An `env` entry with the same name replaces a derived
+address, for a callee that runs outside the release.
+
 ## The authz policy bundle
 
 `core`, `gateway` and `ai` (the services that evaluate access in-process) pull the steward-authz

@@ -12,6 +12,22 @@ crds:
   # first install (needs cluster-admin). false: they must already exist.
   install: false
 
+global:
+  # Each service's main port, for the addresses the chart gives the services
+  # that call it (`<alias>.calls`: steward-<alias>:<port>). Each must equal
+  # that alias's `port.number`; the render fails otherwise, so change both.
+  servicePorts:
+    identity: 9090
+    core: 9091
+    workflow: 9092
+    obligations: 9093
+    audit: 9094
+    delivery: 9095
+    collab: 9096
+    ai: 9097
+    reporting: 9098
+    gateway: 8080
+
 identity:
   enabled: true
   aliasName: identity
@@ -23,6 +39,9 @@ identity:
   port:
     name: grpc
     number: 9090
+  calls:
+  - {service: core, env: CORE_GRPC_ADDR}
+  - {service: identity, env: IDENTITY_GRPC_ADDR}
   podDisruptionBudget:
     enabled: true
     minAvailable: 1
@@ -110,6 +129,9 @@ workflow:
   port:
     name: grpc
     number: 9092
+  calls:
+  - {service: core, env: CORE_GRPC_ADDR}
+  - {service: identity, env: IDENTITY_GRPC_ADDR}
   postgres:
     enabled: true
     host: steward-workflow-postgres-primary
@@ -142,6 +164,9 @@ obligations:
   port:
     name: grpc
     number: 9093
+  calls:
+  - {service: core, env: CORE_GRPC_ADDR}
+  - {service: identity, env: IDENTITY_GRPC_ADDR}
   postgres:
     enabled: true
     host: steward-obligations-postgres-primary
@@ -207,6 +232,8 @@ delivery:
   port:
     name: grpc
     number: 9095
+  calls:
+  - {service: core, env: CORE_GRPC_ADDR}
   # The internal HTTP port the PDF renderer's Jobs fetch policy HTML from.
   # delivery's own default (8081) is the chart's probe port, so the chart
   # always sets it.
@@ -317,6 +344,9 @@ collab:
   port:
     name: grpc
     number: 9096
+  calls:
+  - {service: core, env: CORE_GRPC_ADDR}
+  - {service: identity, env: IDENTITY_GRPC_ADDR}
   postgres:
     enabled: true
     host: steward-collab-postgres-primary
@@ -402,6 +432,8 @@ reporting:
   port:
     name: grpc
     number: 9098
+  calls:
+  - {service: identity, env: IDENTITY_GRPC_ADDR}
   postgres:
     enabled: true
     host: steward-reporting-postgres-primary
@@ -442,6 +474,16 @@ gateway:
     number: 8080
     # GATEWAY_HTTP_ADDR's default (:8080) already matches.
     env: ''
+  calls:
+  - {service: identity, env: STEWARD_IDENTITY_ADDR}
+  - {service: core, env: STEWARD_CORE_ADDR}
+  - {service: workflow, env: STEWARD_WORKFLOW_ADDR}
+  - {service: obligations, env: STEWARD_OBLIGATIONS_ADDR}
+  - {service: audit, env: STEWARD_AUDIT_ADDR}
+  - {service: delivery, env: STEWARD_DELIVERY_ADDR}
+  - {service: collab, env: STEWARD_COLLAB_ADDR}
+  - {service: ai, env: STEWARD_AI_ADDR}
+  - {service: reporting, env: STEWARD_REPORTING_ADDR}
   # gateway serves /livez and /readyz on its one HTTP port.
   probePort: 8080
   podDisruptionBudget:
@@ -461,6 +503,8 @@ web:
     name: http
     number: 3000
     env: PORT
+  calls:
+  - {service: gateway, env: GATEWAY_URL, scheme: http, path: /query}
 
 # ---------------------------------------------------------------------------
 # Bugs5382/helm-postgres-ha, one instance per data-owning service. `replicas`

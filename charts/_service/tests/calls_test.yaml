@@ -1,0 +1,55 @@
+suite: addresses of the services this one calls
+templates:
+  - deployment.yaml
+set:
+  aliasName: example
+  image:
+    repository: registry.example.org/steward-example
+    tag: v0.0.0
+  global:
+    servicePorts:
+      core: 9091
+      gateway: 8080
+tests:
+  - it: derives each address from the callee's Service name and port
+    set:
+      calls:
+        - {service: core, env: CORE_GRPC_ADDR}
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content: {name: CORE_GRPC_ADDR, value: "steward-core:9091"}
+  - it: adds a scheme and a path when the service wants a URL
+    set:
+      calls:
+        - {service: gateway, env: GATEWAY_URL, scheme: http, path: /query}
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content: {name: GATEWAY_URL, value: "http://steward-gateway:8080/query"}
+  - it: lets an operator's env entry replace a derived address without a duplicate name
+    set:
+      calls:
+        - {service: core, env: CORE_GRPC_ADDR}
+      env:
+        - {name: CORE_GRPC_ADDR, value: "core.elsewhere.example:443"}
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content: {name: CORE_GRPC_ADDR, value: "core.elsewhere.example:443"}
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          content: {name: CORE_GRPC_ADDR, value: "steward-core:9091"}
+  - it: fails the render for a callee with no port in global.servicePorts
+    set:
+      calls:
+        - {service: audit, env: AUDIT_GRPC_ADDR}
+    asserts:
+      - failedTemplate:
+          errorPattern: "steward-example: calls: no global.servicePorts.audit"
+  - it: renders no address without calls
+    asserts:
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          content: {name: CORE_GRPC_ADDR}
+          any: true

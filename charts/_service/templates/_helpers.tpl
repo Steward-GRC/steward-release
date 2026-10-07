@@ -116,3 +116,25 @@ second (default-audience) token and the cluster CA mounted for that.
 true
 {{- end -}}
 {{- end -}}
+
+{{/*
+The addresses of the services this alias calls, as [{name, value}]: each
+`calls` entry becomes <env>=[<scheme>://]steward-<service>:<port>[<path>],
+the port taken from global.servicePorts.<service> (set by the umbrella).
+*/}}
+{{- define "service-chart.callAddresses" -}}
+{{- $ports := (.Values.global | default dict).servicePorts | default dict -}}
+{{- $out := list -}}
+{{- range .Values.calls -}}
+{{- $port := index $ports .service -}}
+{{- if not $port -}}
+{{- fail (printf "%s: calls: no global.servicePorts.%s for %s" (include "service-chart.fullname" $) .service .env) -}}
+{{- end -}}
+{{- $addr := printf "steward-%s:%v" .service $port -}}
+{{- if .scheme -}}
+{{- $addr = printf "%s://%s" .scheme $addr -}}
+{{- end -}}
+{{- $out = append $out (dict "name" .env "value" (printf "%s%s" $addr (.path | default ""))) -}}
+{{- end -}}
+{{- toJson $out -}}
+{{- end -}}

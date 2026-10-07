@@ -53,7 +53,7 @@ Steward install, alongside the appliance.
 │   └── _ai-crds/               the PolicyAIJob CRD, vendored (crds/ only)
 ├── scripts/                   sync-crds.sh, its CRD pins (crds-upstream.txt), check-cluster-scoped.sh
 ├── ci/kind/                   the kind install test: image pins, dependencies, values, run.sh
-├── templates/NOTES.txt        the umbrella's install notes (required Postgres extensions)
+├── templates/                 the umbrella's install notes (NOTES.txt) and its service-port check (addresses.yaml)
 ├── tests/                     helm-unittest suites for the umbrella's per-service wiring
 ├── docs/                      install, upgrade and service-to-service auth
 ├── .github/workflows/         this repo's CI: helm lint/unittest/template/kubeconform, kind install, DCO, secrets
