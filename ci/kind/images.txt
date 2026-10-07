@@ -2,11 +2,11 @@
 # pinned commit. Bump a commit to test the chart against newer service code.
 #
 # <alias>      <owner/repo>                     <commit>                                  <Dockerfile>
-identity       Steward-GRC/steward-identity     1f9065b137340ae155d5b3bd7207069c6b6a08e7 Dockerfile
+identity       Steward-GRC/steward-identity     d63475d323070208a021dc45c8e87984d14c0d76 Dockerfile
 core           Steward-GRC/steward-core         7f62d010c22f1d937528be41da6309c0b960eecd Dockerfile
-workflow       Steward-GRC/steward-workflow     b837c64524800471802ee4e709121741bc7a0555 Dockerfile
-obligations    Steward-GRC/steward-obligations  0da0570b04b16b14e300c448ecee797b753f91ef Dockerfile
-audit          Steward-GRC/steward-audit        a2d0f48e9cdee8a66dcdbe47d3ed12e4f1757bc0 Dockerfile
+workflow       Steward-GRC/steward-workflow     0e054b1ee1c994f7ec2eedd91315d0a8768f463e Dockerfile
+obligations    Steward-GRC/steward-obligations  24fa974f819b1c37798675724ff0f4be28aae1f8 Dockerfile
+audit          Steward-GRC/steward-audit        b5cf28324c0d8ae74921db25161818b10b3d6169 Dockerfile
 delivery       Steward-GRC/steward-delivery     1f091fb45335aa31e6bafc0d26a57ccbd37d1542 Dockerfile
 pdf-renderer   Steward-GRC/steward-pdf-renderer 87323a588996e7c0987bf009936e0dc0e3b369e0 Dockerfile.operator
 collab         Steward-GRC/steward-collab       c66d112543b8c20d4b7b98d669413b7125d90b4a Dockerfile

@@ -14,15 +14,21 @@ tests:
       - equal:
           path: spec.template.spec.containers[0].readinessProbe.httpGet
           value: {path: /readyz, port: http}
-  - it: probes audit with the native gRPC health check
+  - it: probes audit over HTTP on its separate probe port 8080
     template: charts/audit/templates/deployment.yaml
     asserts:
       - equal:
-          path: spec.template.spec.containers[0].readinessProbe.grpc
-          value: {port: 9094}
+          path: spec.template.spec.containers[0].readinessProbe.httpGet
+          value: {path: /readyz, port: probe}
       - equal:
-          path: spec.template.spec.containers[0].livenessProbe.grpc
-          value: {port: 9094}
+          path: spec.template.spec.containers[0].livenessProbe.httpGet
+          value: {path: /livez, port: probe}
+      - contains:
+          path: spec.template.spec.containers[0].ports
+          content: {name: probe, containerPort: 8080}
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content: {name: PROBE_PORT, value: "8080"}
   - it: keeps the separate HTTP probe port for the services that serve it
     template: charts/core/templates/deployment.yaml
     asserts:

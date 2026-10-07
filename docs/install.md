@@ -155,12 +155,12 @@ the helm-postgres-ha README for the DNS names it needs).
 
 Each service alias picks its probe type in `values.yaml` (`<service>.probe.type`):
 
-- `http` (the default): `GET /readyz` and `/livez` on `<service>.probePort` (8081). A service that
-  serves them on its main HTTP port sets `probePort` to that port (gateway does), and the chart
-  renders the port once.
+- `http` (the default): `GET /readyz` and `/livez` on `<service>.probePort` (8081; 8080 for audit).
+  A service that serves them on its main HTTP port sets `probePort` to that port (gateway does), and
+  the chart renders the port once.
 - `grpc`: the kubelet's native `grpc.health.v1` probe on the service's main port, for a service with
-  no HTTP listener (audit). Your NetworkPolicy implementation must let the node reach pod ports,
-  which every common one does by default.
+  no HTTP listener (none of the defaults today). Your NetworkPolicy implementation must let the
+  node reach pod ports, which every common one does by default.
 
 A service with a second listener declares it in `<service>.extraPorts` (delivery's internal HTTP
 port, 8082, which the PDF renderer's Jobs fetch policy HTML from). The chart passes the number to

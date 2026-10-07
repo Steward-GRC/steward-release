@@ -34,17 +34,14 @@ the chart projects, into the same read-only volume at `/var/run/secrets/steward`
 outside the cluster, set `<service>.workloadAuth.oidc.issuer`/`jwksUrl` and point
 `oidc.caFile`/`oidc.bearerFile` at your own files.
 
-## Which services verify callers today
+## Which services verify callers
 
-Workload auth is implemented in **core, delivery, reporting, collab and ai** (callees) and in
-**gateway** (a caller only). Only those aliases are wired with `workloadAuth.callee`/`caller`.
-
-**Gap:** identity, workflow, obligations and audit have no workload-auth support yet. They don't
-read any `WORKLOAD_*` setting, so the chart sets none for them, and they accept any caller that
-can reach their port. Their only optional caller check is mTLS with a `*_TRUSTED_CALLERS` list,
-which this chart doesn't wire. Until they gain workload auth, the only control in front of them is
-their NetworkPolicy (rendered from the same caller list below), which is defence in depth, not
-authentication. workflow and obligations are not wired as callers either, for the same reason.
+Every Steward service that takes gRPC calls from another one verifies the caller's token:
+**identity, core, workflow, obligations, audit, delivery, reporting, collab and ai** are callees.
+The callers are **gateway, core, workflow, obligations, identity, delivery, reporting and collab**,
+each with its own projected token. pdf-renderer is neither: its operator gives each render Job its
+own `steward`-audience token for the fetch from delivery. Every callee runs enabled by default;
+nothing in `values.yaml` sets `WORKLOAD_AUTH=disabled`.
 
 ## What this chart wires for every service alias
 
@@ -64,32 +61,28 @@ together, and any other `WORKLOAD_AUTH` value, at start-up; the chart fails the 
 `authMode` other than `enabled` or `disabled`, and for an enabled callee with an empty caller list.
 
 A `NetworkPolicy` per alias with a caller list narrows which pods can even reach its port to that
-list — defence in depth; for the services that verify tokens the actual enforcement is the token
-check above (see the gap above for the ones that don't).
+list: defence in depth. The actual enforcement is the token check above.
 
 ## The caller list, by callee
 
-| Callee | Callers | Enforced by |
-|---|---|---|
-| `identity` | gateway, core, workflow, obligations, reporting, collab | NetworkPolicy only (gap) |
-| `core` | gateway, workflow, delivery, collab, obligations, identity | token check (disabled by default, below) + NetworkPolicy |
-| `workflow` | gateway | NetworkPolicy only (gap) |
-| `obligations` | gateway, reporting | NetworkPolicy only (gap) |
-| `audit` | gateway, reporting | NetworkPolicy only (gap) |
-| `delivery` | gateway, pdf-renderer (the renderer's Jobs fetch from delivery's internal HTTP port with a token the operator projects into each Job) | token check + NetworkPolicy |
-| `collab` | gateway | token check + NetworkPolicy |
-| `ai` | gateway | token check + NetworkPolicy |
-| `reporting` | gateway | token check + NetworkPolicy |
+| Callee | Callers |
+|---|---|
+| `identity` | gateway, workflow, obligations, reporting, collab, identity (its own admin CLI, run in the identity pod) |
+| `core` | gateway, workflow, delivery, collab, obligations, identity |
+| `workflow` | gateway |
+| `obligations` | gateway |
+| `audit` | gateway |
+| `delivery` | gateway, pdf-renderer (the renderer's Jobs fetch from delivery's internal HTTP port with a token the operator projects into each Job) |
+| `collab` | gateway |
+| `ai` | gateway |
+| `reporting` | gateway |
+
+Each callee enforces its list with the token check; its NetworkPolicy, rendered from the same list,
+is defence in depth.
 
 `gateway` has no caller list of its own here: its inbound traffic is the web app over the
 browser-origin edge (session and CSRF protected, a different mechanism), not another service's
 workload token. `gateway` is still a **caller** to every service above.
-
-`core` ships with `workloadAuth.authMode: disabled` in this chart's defaults (see `values.yaml`), so
-it runs with `WORKLOAD_AUTH=disabled`: it flips to `enabled` once every one of its callers
-(workflow, obligations, delivery, collab, gateway) is confirmed sending a token, since turning it on
-before that would lock out a live caller. workflow and obligations can't send one until they gain
-workload auth.
 
 ## Changing the caller list
 

@@ -41,17 +41,18 @@ identity:
       database: ''
       user: ''
       passwordSecretName: ''
-  # No workload-auth library yet: the chart wires no WORKLOAD_* settings, and
-  # the caller list only scopes the NetworkPolicy (see
-  # docs/service-to-service-auth.md).
   workloadAuth:
+    caller: true
+    callee: true
+    authMode: enabled
+    # identity's own admin CLI runs in the identity pod and calls identity.
     allowedServiceAccounts:
     - gateway
-    - core
     - workflow
     - obligations
     - reporting
     - collab
+    - identity
 
 core:
   enabled: true
@@ -90,7 +91,7 @@ core:
   workloadAuth:
     caller: true
     callee: true
-    authMode: disabled
+    authMode: enabled
     allowedServiceAccounts:
     - gateway
     - workflow
@@ -124,10 +125,10 @@ workflow:
       database: ''
       user: ''
       passwordSecretName: ''
-  # No workload-auth library yet: the chart wires no WORKLOAD_* settings, and
-  # the caller list only scopes the NetworkPolicy (see
-  # docs/service-to-service-auth.md).
   workloadAuth:
+    caller: true
+    callee: true
+    authMode: enabled
     allowedServiceAccounts:
     - gateway
 
@@ -156,13 +157,12 @@ obligations:
       database: ''
       user: ''
       passwordSecretName: ''
-  # No workload-auth library yet: the chart wires no WORKLOAD_* settings, and
-  # the caller list only scopes the NetworkPolicy (see
-  # docs/service-to-service-auth.md).
   workloadAuth:
+    caller: true
+    callee: true
+    authMode: enabled
     allowedServiceAccounts:
     - gateway
-    - reporting
 
 audit:
   enabled: true
@@ -174,9 +174,8 @@ audit:
   port:
     name: grpc
     number: 9094
-  # audit has no HTTP listener; it serves grpc.health.v1 on its gRPC port.
-  probe:
-    type: grpc
+  # audit serves /readyz and /livez on its own HTTP port.
+  probePort: 8080
   postgres:
     enabled: true
     host: steward-audit-postgres-primary
@@ -192,13 +191,11 @@ audit:
       database: ''
       user: ''
       passwordSecretName: ''
-  # No workload-auth library yet: the chart wires no WORKLOAD_* settings, and
-  # the caller list only scopes the NetworkPolicy (see
-  # docs/service-to-service-auth.md).
   workloadAuth:
+    callee: true
+    authMode: enabled
     allowedServiceAccounts:
     - gateway
-    - reporting
 
 delivery:
   enabled: true

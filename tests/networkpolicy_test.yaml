@@ -1,8 +1,19 @@
 suite: umbrella caller lists
 templates:
   - charts/core/templates/networkpolicy.yaml
+  - charts/identity/templates/networkpolicy.yaml
 tests:
   - it: admits every service that calls core
+    template: charts/core/templates/networkpolicy.yaml
+    asserts:
+      - contains:
+          path: spec.ingress[0].from
+          content:
+            podSelector:
+              matchLabels:
+                app.kubernetes.io/name: steward-identity
+  - it: admits identity's own admin CLI to identity
+    template: charts/identity/templates/networkpolicy.yaml
     asserts:
       - contains:
           path: spec.ingress[0].from
