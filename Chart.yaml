@@ -58,6 +58,11 @@ dependencies:
     repository: "file://charts/_service"
     condition: ai.enabled
   - name: service-chart
+    alias: ai-operator
+    version: 0.1.0
+    repository: "file://charts/_service"
+    condition: ai-operator.enabled
+  - name: service-chart
     alias: reporting
     version: 0.1.0
     repository: "file://charts/_service"

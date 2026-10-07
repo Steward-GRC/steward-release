@@ -8,8 +8,8 @@ high-availability Postgres instance (or your own, brought in instead), service-t
 authentication wired in from the start, and health-checked probes.
 
 - **One reusable chart:** every service alias (`identity`, `core`, `workflow`, `obligations`,
-  `audit`, `delivery`, `pdf-renderer`, `collab`, `ai`, `reporting`, `gateway`, `web-staff`, `web-admin`) composes
-  [`charts/_service`](charts/_service); a new service is a values block, never a new chart.
+  `audit`, `delivery`, `pdf-renderer`, `collab`, `ai`, `ai-operator`, `reporting`, `gateway`,
+  `web-staff`, `web-admin`) composes [`charts/_service`](charts/_service); a new service is a values block, never a new chart.
 - **Postgres:** each data-owning service gets its own [Bugs5382/helm-postgres-ha](https://github.com/Bugs5382/helm-postgres-ha)
   instance, replica count set by you (1 by default, a 3-member quorum in
   [`values-ha-example.yaml`](values-ha-example.yaml)); bring your own instead with

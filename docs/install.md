@@ -114,19 +114,74 @@ kubectl apply --server-side -f charts/_pdf-renderer-crds/crds/ -f charts/_ai-crd
 On a cluster this release owns alone, `--set crds.install=true` lets `helm install` install them
 from `crds/` instead (first install only; Helm never upgrades or deletes CRDs).
 
-Every pod runs with `automountServiceAccountToken: false` except the three services that call the
-Kubernetes API, each with a namespaced Role written from its own needs and nothing cluster-wide:
+Every pod runs with `automountServiceAccountToken: false` except the four that call the Kubernetes
+API. Each has a namespaced Role holding only the calls its code makes, and nothing cluster-wide:
 
-| Service | Why | Role |
+| Workload (service account) | Why | Role |
 |---|---|---|
-| pdf-renderer (service account `steward-pdf-renderer-operator`) | reconciles PdfRenders into render Jobs | pdfrenders (+ status, finalizers), batch jobs, events, leader-election leases |
-| delivery | creates PdfRenders for PDF export and watches their status | pdfrenders: create, list, watch |
-| ai | creates and reads PolicyAIJobs | policyaijobs: get, create |
+| pdf-renderer operator (`steward-pdf-renderer-operator`) | reconciles PdfRenders into render Jobs | pdfrenders: get, list, watch; pdfrenders/status: update; pdfrenders/finalizers: update (the Jobs' blocking owner reference); batch jobs: get, list, watch, create; events: create, patch; leases: create, then get and update on its own lease only |
+| ai operator (`steward-ai-operator`) | runs PolicyAIJobs, deletes finished ones, schedules the nightly relationship job | policyaijobs: get, list, watch, create, delete; policyaijobs/status: update; events: create, patch; leases: create, then get and update on its own lease only |
+| delivery (`steward-delivery`) | creates PdfRenders for PDF export and watches their status | pdfrenders: create, list, watch |
+| ai (`steward-ai`) | creates and reads PolicyAIJobs | policyaijobs: get, create |
+
+pdf-renderer's own RBAC markers grant more (every verb on pdfrenders, update, patch and delete on
+Jobs); the chart grants only what its controller calls. Each operator watches its own namespace
+only.
 
 The render Jobs run as `steward-pdf-renderer`, a service account with no RBAC and no API token; it
 is the caller name delivery's allow-list expects on the HTML fetch. Set the Jobs' image with
 `pdf-renderer.baseEnv` `RENDERER_IMAGE` (or an `env` entry of the same name), and create the
 object-storage Secret the Jobs read (`steward-pdf-renderer-s3` by default) before the first export.
+
+### ai's operator
+
+ai ships two binaries: the gRPC server (`ai`) and the operator (`ai-operator`, the image built from
+steward-ai's `Dockerfile.operator`) that runs the PolicyAIJobs the server creates. Without the
+operator ai's jobs are created and never run. `ai-operator.enabled` is on by default; turn it off
+together with ai (`ai.enabled`). The operator uses ai's database and reads the same settings as ai:
+set the same `postgres` (or `postgres.external`) values, and add the same `RABBITMQ_URL`,
+`REDIS_ADDR`, `AI_SETTINGS_KEY` and embeddings and generation settings to `ai-operator.env` as to
+`ai.env`. It serves its probes on 8081 and controller metrics on 9090, has no Service and no
+workload identity (it calls no Steward service), and uses leader election, so a second replica only
+takes over.
+
+### PDF export
+
+delivery's PDF export creates a PdfRender per request; pdf-renderer's operator turns it into a
+render Job, which fetches the policy HTML from delivery's internal port (8082) with its own
+`steward`-audience token (delivery admits only `<namespace>/steward-pdf-renderer` there) and writes
+the PDF to object storage, where delivery signs the download link. The chart sets
+`PDF_EXPORT_ENABLED=true` for delivery while pdf-renderer is on. To run without pdf-renderer, set
+`pdf-renderer.enabled: false` and `PDF_EXPORT_ENABLED=false` in `delivery.env`; the render fails
+if only the first is set, since nothing would reconcile delivery's PdfRenders.
+
+Both sides read the same object store from one Secret you create (the chart holds no credential
+and never creates it). The render Jobs load it whole; delivery reads its keys into its `S3_*`
+settings and puts the bucket in each PdfRender, so the Jobs write where delivery signs links:
+
+```bash
+kubectl -n steward create secret generic steward-pdf-renderer-s3 \
+  --from-literal=AWS_S3_ENDPOINT=https://s3.example.org \
+  --from-literal=S3_BUCKET=steward-pdf \
+  --from-literal=AWS_REGION=us-east-1 \
+  --from-literal=AWS_S3_FORCE_PATH_STYLE=true \
+  --from-literal=AWS_ACCESS_KEY_ID=... --from-literal=AWS_SECRET_ACCESS_KEY=...
+```
+
+| Secret key | delivery setting | Render Job setting |
+|---|---|---|
+| `AWS_S3_ENDPOINT` | `S3_ENDPOINT` | `AWS_S3_ENDPOINT` |
+| `S3_BUCKET` | `S3_BUCKET` (sent to the Job as its output bucket) | - |
+| `AWS_REGION` | `S3_REGION` | `AWS_REGION` |
+| `AWS_S3_FORCE_PATH_STYLE` | `S3_FORCE_PATH_STYLE` | `AWS_S3_FORCE_PATH_STYLE` |
+| `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` | `S3_ACCESS_KEY`, `S3_SECRET_KEY` | the same |
+
+To use an existing Secret under another name, set `pdf-renderer` `S3_SECRET_NAME` to it (an
+`env` entry) and point delivery's six `S3_*` entries at it in `delivery.env`; the render fails
+if delivery and the Jobs name different Secrets. Every key is optional to delivery: until the
+Secret exists delivery runs with PDF export off and reports `pdfexport` degraded, and it reads
+the Secret only at start, so restart it (`kubectl -n steward rollout restart
+deploy/steward-delivery`) after creating or changing the Secret.
 
 ## Cluster-scoped objects
 
@@ -167,8 +222,8 @@ port, 8082, which the PDF renderer's Jobs fetch policy HTML from). The chart pas
 the service in the named variable and fails the render if any two ports of one service collide.
 
 The main port's number reaches the service in the variable `<service>.port.env` names: `GRPC_PORT`
-for the Go services, `METRICS_PORT` for pdf-renderer, `PORT` for the web apps, and none for the
-gateway, whose default listen address already matches its 8080.
+for the Go services, `METRICS_PORT` for the pdf-renderer and ai operators, `PORT` for the web apps,
+and none for the gateway, whose default listen address already matches its 8080.
 
 ## Web apps
 
@@ -221,9 +276,8 @@ Each `global.servicePorts` entry must equal that alias's `port.number`, and the 
 they differ, so a port change sets both. An `env` entry with the same name replaces a derived
 address, for a callee that runs outside the release.
 
-## The authz policy bundle
+## Access decisions
 
-`core`, `gateway` and `ai` (the services that evaluate access in-process) pull the steward-authz
-Rego policy bundle from an init container image (`<service>.opaBundle.image`) into a shared,
-read-only volume at start-up. Point it at your own bundle image, or steward-authz's published one
-once it ships.
+`core` and `gateway` decide access in-process with the steward-authz Go module, built into each
+image, and `ai` applies the same read rules in its own queries. The chart mounts no policy bundle
+and needs no bundle image.

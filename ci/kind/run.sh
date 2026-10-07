@@ -2,7 +2,8 @@
 # The chart's install test: a kind cluster with the bring-your-own
 # dependencies in deps.yaml, the umbrella installed from this checkout with
 # the service images built from ci/kind/images.txt, every Deployment Ready,
-# and the gateway's /readyz reporting every dependency up.
+# the gateway's /readyz reporting every dependency up, and the ai and
+# pdf-renderer operators each reconciling a resource of their own.
 #
 #   ci/kind/run.sh
 #
@@ -105,9 +106,54 @@ else
   log "secrets created"
 fi
 
+# Object storage for PDF export: the one Secret delivery and the render Jobs
+# read, generated on the first run like the others and never printed.
+if ! kubectl -n "$ns" get secret steward-pdf-renderer-s3 >/dev/null 2>&1; then
+  kubectl -n "$ns" create secret generic steward-pdf-renderer-s3 \
+    --from-literal=AWS_S3_ENDPOINT=http://steward-s3:9000 \
+    --from-literal=S3_BUCKET=steward-pdf \
+    --from-literal=AWS_REGION=us-east-1 \
+    --from-literal=AWS_S3_FORCE_PATH_STYLE=true \
+    --from-literal=AWS_ACCESS_KEY_ID="$(openssl rand -hex 10)" \
+    --from-literal=AWS_SECRET_ACCESS_KEY="$(openssl rand -hex 20)" \
+    --dry-run=client -o yaml | kubectl apply -f - >/dev/null
+  log "object-storage secret created"
+fi
+
 kubectl -n "$ns" apply -f "$here/deps.yaml" >/dev/null
 kubectl -n "$ns" rollout status deploy --timeout=300s
 log "dependencies ready"
+
+# The PDF bucket, created through the S3 API with the Secret's own keys
+# (an existing bucket answers 409, which is fine).
+kubectl -n "$ns" delete job steward-ci-s3-bucket --ignore-not-found >/dev/null
+kubectl -n "$ns" apply -f - >/dev/null <<'EOF'
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: steward-ci-s3-bucket
+spec:
+  backoffLimit: 5
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: create-bucket
+          image: docker.io/curlimages/curl:8.22.0@sha256:58adaa4e8dca9c988bae2aba4ab3434a0bb2da16bbe3f92dec39ec7785166777
+          envFrom:
+            - secretRef: {name: steward-pdf-renderer-s3}
+          command:
+            - sh
+            - -c
+            - |
+              code=$(curl -sS -o /dev/null -w '%{http_code}' --aws-sigv4 "aws:amz:${AWS_REGION}:s3" \
+                --user "${AWS_ACCESS_KEY_ID}:${AWS_SECRET_ACCESS_KEY}" -X PUT "${AWS_S3_ENDPOINT}/${S3_BUCKET}")
+              echo "create bucket ${S3_BUCKET}: HTTP ${code}"
+              [ "$code" = 200 ] || [ "$code" = 409 ]
+EOF
+kubectl -n "$ns" wait job steward-ci-s3-bucket --for=condition=Complete --timeout=120s >/dev/null
+done_pod=$(kubectl -n "$ns" get pods -l job-name=steward-ci-s3-bucket --field-selector=status.phase=Succeeded -o name | head -1)
+kubectl -n "$ns" logs "$done_pod" --tail=1
 
 image_args=()
 for a in $aliases; do
@@ -126,11 +172,18 @@ kubectl -n "$ns" rollout status deploy -l app.kubernetes.io/part-of=steward --ti
 kubectl -n "$ns" get deploy
 
 log "gateway /readyz"
-ready=$(kubectl -n "$ns" run readyz-check --rm -i --restart=Never --quiet \
-  --image=docker.io/curlimages/curl:8.22.0@sha256:58adaa4e8dca9c988bae2aba4ab3434a0bb2da16bbe3f92dec39ec7785166777 \
-  -- curl -sS -w '\n%{http_code}' http://steward-gateway:8080/readyz)
-echo "$ready"
-code=$(echo "$ready" | tail -1)
+# `kubectl run --rm -i` can lose a short-lived pod's output, so an empty
+# answer is retried; a real HTTP code is not.
+code=""
+for attempt in 1 2 3; do
+  ready=$(kubectl -n "$ns" run "readyz-check-$attempt" --rm -i --restart=Never --quiet \
+    --image=docker.io/curlimages/curl:8.22.0@sha256:58adaa4e8dca9c988bae2aba4ab3434a0bb2da16bbe3f92dec39ec7785166777 \
+    -- curl -sS -w '\n%{http_code}' http://steward-gateway:8080/readyz || true)
+  echo "$ready"
+  code=$(echo "$ready" | tail -1)
+  [ -n "$code" ] && break
+  log "no answer from the readyz check (attempt $attempt)"
+done
 if [ "$code" != 200 ]; then
   log "gateway /readyz answered $code"
   diagnose
@@ -145,5 +198,74 @@ if kubectl -n "$ns" logs -l app.kubernetes.io/part-of=steward --all-containers -
   exit 1
 fi
 
+# The operators: each must take a resource of its own through to a status,
+# with only the namespaced RBAC the chart gives it.
+await_phase() { # <resource> <name> <phase regex> <seconds>
+  local phase=""
+  for _ in $(seq "$4"); do
+    phase=$(kubectl -n "$ns" get "$1" "$2" -o jsonpath='{.status.phase}' 2>/dev/null || true)
+    if echo "$phase" | grep -qE "^($3)$"; then
+      log "$1/$2 reached phase $phase"
+      return 0
+    fi
+    sleep 1
+  done
+  log "$1/$2 is still in phase '${phase}' after $4s"
+  return 1
+}
+
+log "ai operator: reconcile a PolicyAIJob"
+aijob="ci-reconcile-$(date +%s)"
+kubectl -n "$ns" apply -f - >/dev/null <<EOF
+apiVersion: ai.steward-grc.com/v1alpha1
+kind: PolicyAIJob
+metadata:
+  name: $aijob
+spec:
+  operation: RELATIONSHIP_LEARN
+EOF
+await_phase policyaijobs.ai.steward-grc.com "$aijob" 'Succeeded|Failed' 120
+kubectl -n "$ns" get policyaijobs.ai.steward-grc.com "$aijob"
+kubectl -n "$ns" delete policyaijobs.ai.steward-grc.com "$aijob" --ignore-not-found >/dev/null
+
+log "pdf-renderer operator: reconcile a PdfRender into a render Job"
+render="ci-reconcile-$(date +%s)"
+pv=00000000-0000-4000-8000-000000000000
+kubectl -n "$ns" apply -f - >/dev/null <<EOF
+apiVersion: renders.steward-grc.com/v1alpha1
+kind: PdfRender
+metadata:
+  name: $render
+spec:
+  policyVersionId: $pv
+  fetchURL: http://steward-delivery:8082/internal/policies/$pv/html
+  outputBucket: steward-ci
+  outputKey: artifacts/$pv/$render.pdf
+  sensitivity: standard
+EOF
+await_phase pdfrenders.renders.steward-grc.com "$render" 'Pending|Running|Succeeded|Failed' 60
+kubectl -n "$ns" wait job "$render" --for=create --timeout=60s >/dev/null
+sa=$(kubectl -n "$ns" get job "$render" -o jsonpath='{.spec.template.spec.serviceAccountName}')
+if [ "$sa" != steward-pdf-renderer ]; then
+  log "the render Job runs as '$sa', not steward-pdf-renderer"
+  exit 1
+fi
+log "render Job $render created, running as $sa"
+kubectl -n "$ns" delete pdfrenders.renders.steward-grc.com "$render" --ignore-not-found --wait=false >/dev/null
+
+# Read the log first: grep -q closing the pipe early fails it under pipefail.
+delivery_log=$(kubectl -n "$ns" logs deploy/steward-delivery --tail=-1 2>/dev/null || true)
+if ! grep -q '"PDF export on"' <<<"$delivery_log"; then
+  log "delivery did not turn PDF export on"
+  exit 1
+fi
+log "delivery: PDF export on"
+
+if kubectl -n "$ns" logs -l 'app.kubernetes.io/name in (steward-ai-operator,steward-pdf-renderer,steward-delivery)' \
+    --all-containers --tail=-1 --prefix 2>/dev/null | grep -E 'is forbidden'; then
+  log "an operator was refused an API call"
+  exit 1
+fi
+
 trap - ERR
-log "PASS: every Deployment Ready, gateway /readyz 200"
+log "PASS: every Deployment Ready, gateway /readyz 200, both operators reconciling"

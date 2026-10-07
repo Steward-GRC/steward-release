@@ -1,0 +1,20 @@
+{{- /*
+delivery's PDF export creates PdfRender resources that only pdf-renderer
+reconciles. With pdf-renderer off they would stay pending forever, so the
+render fails until delivery's export is turned off too. With it on, delivery
+and the render Jobs must read the same object-storage Secret: delivery signs
+download links for the objects the Jobs write.
+*/ -}}
+{{- if include "steward.pdfExportOn" . }}
+{{- if not (index .Values "pdf-renderer").enabled }}
+{{- fail "pdf-renderer is disabled but delivery's PDF export is on: enable pdf-renderer, or set PDF_EXPORT_ENABLED=false in delivery.env" }}
+{{- end }}
+{{- $secret := include "steward.pdfRendererS3Secret" . }}
+{{- range list "S3_ENDPOINT" "S3_BUCKET" "S3_REGION" "S3_FORCE_PATH_STYLE" "S3_ACCESS_KEY" "S3_SECRET_KEY" }}
+{{- $e := include "steward.deliveryEnvEntry" (dict "delivery" $.Values.delivery "name" .) | fromJson }}
+{{- $ref := (($e.valueFrom | default dict).secretKeyRef | default dict) }}
+{{- if and $ref.name (ne $ref.name $secret) }}
+{{- fail (printf "delivery reads %s from Secret %q but the render Jobs load %q (pdf-renderer S3_SECRET_NAME): use one Secret for both" . $ref.name $secret) }}
+{{- end }}
+{{- end }}
+{{- end }}

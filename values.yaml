@@ -76,11 +76,6 @@ identity:
 core:
   enabled: true
   aliasName: core
-  opaBundle:
-    enabled: true
-    image:
-      repository: ghcr.io/steward-grc/steward-authz-bundle
-      tag: v0.1.0
   image:
     repository: ghcr.io/steward-grc/steward-core
     tag: v0.1.0
@@ -257,6 +252,33 @@ delivery:
   # Where the render Jobs fetch policy HTML from: the internal-http port.
   - name: INTERNAL_BASE_URL
     value: http://steward-delivery:8082
+  # On while pdf-renderer runs; the render fails if pdf-renderer is off and
+  # this isn't set to "false" in delivery.env.
+  - name: PDF_EXPORT_ENABLED
+    value: 'true'
+  # Object storage, from the one Secret the render Jobs also load
+  # (pdf-renderer's S3_SECRET_NAME; the render fails if the names differ).
+  # You create it, or name your existing one in both places; the chart holds
+  # no credential. Until it exists delivery runs with PDF export off and
+  # reports `pdfexport` degraded (docs/install.md).
+  - name: S3_ENDPOINT
+    valueFrom:
+      secretKeyRef: {name: steward-pdf-renderer-s3, key: AWS_S3_ENDPOINT, optional: true}
+  - name: S3_BUCKET
+    valueFrom:
+      secretKeyRef: {name: steward-pdf-renderer-s3, key: S3_BUCKET, optional: true}
+  - name: S3_REGION
+    valueFrom:
+      secretKeyRef: {name: steward-pdf-renderer-s3, key: AWS_REGION, optional: true}
+  - name: S3_FORCE_PATH_STYLE
+    valueFrom:
+      secretKeyRef: {name: steward-pdf-renderer-s3, key: AWS_S3_FORCE_PATH_STYLE, optional: true}
+  - name: S3_ACCESS_KEY
+    valueFrom:
+      secretKeyRef: {name: steward-pdf-renderer-s3, key: AWS_ACCESS_KEY_ID, optional: true}
+  - name: S3_SECRET_KEY
+    valueFrom:
+      secretKeyRef: {name: steward-pdf-renderer-s3, key: AWS_SECRET_ACCESS_KEY, optional: true}
   postgres:
     enabled: true
     host: steward-delivery-postgres-primary
@@ -295,9 +317,11 @@ pdf-renderer:
   # steward-audience token for the fetch from delivery.
   #
   # The operator reconciles PdfRenders into Jobs, so it gets the API token,
-  # on its own service account, with exactly its controller's RBAC markers
-  # plus leader election. The Jobs run as steward-pdf-renderer (the caller
-  # name delivery's allow-list expects), with no RBAC and no API token.
+  # on its own service account, with a Role holding only the calls its
+  # controller and leader election make (narrower than its RBAC markers;
+  # docs/install.md maps each rule). The Jobs run as steward-pdf-renderer
+  # (the caller name delivery's allow-list expects), with no RBAC and no API
+  # token.
   serviceAccount:
     name: steward-pdf-renderer-operator
   extraServiceAccounts:
@@ -307,22 +331,29 @@ pdf-renderer:
     rules:
     - apiGroups: [renders.steward-grc.com]
       resources: [pdfrenders]
-      verbs: [get, list, watch, create, update, patch, delete]
+      verbs: [get, list, watch]
     - apiGroups: [renders.steward-grc.com]
       resources: [pdfrenders/status]
-      verbs: [get, update, patch]
+      verbs: [update]
+    # The Jobs it creates carry an owner reference that blocks the
+    # PdfRender's deletion, which needs update on its finalizers.
     - apiGroups: [renders.steward-grc.com]
       resources: [pdfrenders/finalizers]
       verbs: [update]
     - apiGroups: [batch]
       resources: [jobs]
-      verbs: [get, list, watch, create, update, patch, delete]
+      verbs: [get, list, watch, create]
     - apiGroups: [""]
       resources: [events]
       verbs: [create, patch]
+    # Leader election: create the lease once, then read and renew only its own.
     - apiGroups: [coordination.k8s.io]
       resources: [leases]
-      verbs: [get, list, watch, create, update, patch, delete]
+      verbs: [create]
+    - apiGroups: [coordination.k8s.io]
+      resources: [leases]
+      resourceNames: [steward-pdf-renderer.renders.steward-grc.com]
+      verbs: [get, update]
   baseEnv:
   - name: WATCH_NAMESPACE
     valueFrom:
@@ -333,6 +364,12 @@ pdf-renderer:
   # The image every render Job runs (the repo's Dockerfile.renderer).
   - name: RENDERER_IMAGE
     value: ghcr.io/steward-grc/steward-pdf-renderer-renderer:v0.1.0
+  # The Secret every render Job loads whole (envFrom) for its object storage:
+  # AWS_S3_ENDPOINT, AWS_REGION, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY and
+  # AWS_S3_FORCE_PATH_STYLE, plus S3_BUCKET for delivery. delivery reads the
+  # same Secret, so both use one store and delivery's bucket.
+  - name: S3_SECRET_NAME
+    value: steward-pdf-renderer-s3
 
 collab:
   enabled: true
@@ -372,11 +409,6 @@ collab:
 ai:
   enabled: true
   aliasName: ai
-  opaBundle:
-    enabled: true
-    image:
-      repository: ghcr.io/steward-grc/steward-authz-bundle
-      tag: v0.1.0
   image:
     repository: ghcr.io/steward-grc/steward-ai
     tag: v0.1.0
@@ -422,6 +454,70 @@ ai:
     allowedServiceAccounts:
     - gateway
 
+# ai's second binary: the operator that runs the PolicyAIJobs ai's server
+# creates (and schedules the nightly relationship job). It uses ai's own
+# database and reads the same settings as ai (RABBITMQ_URL, REDIS_ADDR,
+# AI_SETTINGS_KEY, the embeddings and generation settings): set them in both
+# `ai.env` and `ai-operator.env`. It serves no gRPC, calls no Steward
+# service and has no callers, so it has no Service, no workload identity and
+# no NetworkPolicy; its probes are on probePort and its metrics on port.
+ai-operator:
+  enabled: true
+  aliasName: ai-operator
+  image:
+    repository: ghcr.io/steward-grc/steward-ai-operator
+    tag: v0.1.0
+  replicaCount: 1
+  port:
+    name: metrics
+    number: 9090
+    env: METRICS_PORT
+  service:
+    enabled: false
+  automountServiceAccountToken: true
+  rbac:
+    rules:
+    # The reconciler reads and watches jobs, the GC deletes finished ones,
+    # and the scheduler creates the nightly relationship job.
+    - apiGroups: [ai.steward-grc.com]
+      resources: [policyaijobs]
+      verbs: [get, list, watch, create, delete]
+    - apiGroups: [ai.steward-grc.com]
+      resources: [policyaijobs/status]
+      verbs: [update]
+    - apiGroups: [""]
+      resources: [events]
+      verbs: [create, patch]
+    # Leader election: create the lease once, then read and renew only its own.
+    - apiGroups: [coordination.k8s.io]
+      resources: [leases]
+      verbs: [create]
+    - apiGroups: [coordination.k8s.io]
+      resources: [leases]
+      resourceNames: [steward-ai-operator.ai.steward-grc.com]
+      verbs: [get, update]
+  baseEnv:
+  - name: AI_JOB_NAMESPACE
+    valueFrom:
+      fieldRef:
+        fieldPath: metadata.namespace
+  # ai's database, the same settings as ai.postgres (keep them in step).
+  postgres:
+    enabled: true
+    host: steward-ai-postgres-primary
+    port: 5432
+    database: ai
+    user: app
+    sslmode: require
+    passwordSecretName: steward-ai-postgres-role-app
+    passwordSecretKey: password
+    external:
+      enabled: false
+      host: ''
+      database: ''
+      user: ''
+      passwordSecretName: ''
+
 reporting:
   enabled: true
   aliasName: reporting
@@ -459,11 +555,6 @@ reporting:
 gateway:
   enabled: true
   aliasName: gateway
-  opaBundle:
-    enabled: true
-    image:
-      repository: ghcr.io/steward-grc/steward-authz-bundle
-      tag: v0.1.0
   image:
     repository: ghcr.io/steward-grc/steward-gateway
     tag: v0.1.0

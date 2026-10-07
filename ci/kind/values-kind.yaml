@@ -8,8 +8,6 @@
 #   below and the addresses of the services each one calls from values.yaml;
 #   each service's other settings (its keys, its dependencies) come in
 #   through `env`.
-# - opaBundle is off: no service reads OPA_BUNDLE_PATH; each builds the
-#   steward-authz bundle into its own image.
 # - Images: run.sh sets <alias>.image.repository/tag from ci/kind/images.txt.
 # - The test cluster is this release's alone, so it opts in to installing the
 #   CRDs.
@@ -81,8 +79,6 @@ core:
         key: core-settings-key
   - name: REDIS_ADDR
     value: steward-valkey:6379
-  opaBundle:
-    enabled: false
   replicaCount: 1
   podAntiAffinity: false
 core-postgres:
@@ -249,10 +245,39 @@ ai:
     value: stub
   - name: AI_GENERATION_STUB
     value: 'true'
-  opaBundle:
-    enabled: false
   replicaCount: 1
   podAntiAffinity: false
+ai-operator:
+  logging:
+    level: debug
+  postgres:
+    external:
+      enabled: true
+      host: steward-postgres
+      port: 5432
+      database: steward_ai
+      user: ai
+      sslmode: disable
+      passwordSecretName: steward-ci-env
+      passwordSecretKey: ai-password
+  env:
+  - name: RABBITMQ_URL
+    valueFrom:
+      secretKeyRef:
+        name: steward-ci-env
+        key: rabbitmq-url
+  - name: REDIS_ADDR
+    value: steward-valkey:6379
+  - name: AI_SETTINGS_KEY
+    valueFrom:
+      secretKeyRef:
+        name: steward-ci-env
+        key: ai-settings-key
+  - name: AI_EMBED_PROVIDER
+    value: stub
+  - name: AI_GENERATION_STUB
+    value: 'true'
+  replicaCount: 1
 ai-postgres:
   enabled: false
 reporting:
@@ -279,8 +304,6 @@ reporting:
 reporting-postgres:
   enabled: false
 gateway:
-  opaBundle:
-    enabled: false
   logging:
     level: debug
   env:
