@@ -69,3 +69,41 @@ tests:
     asserts:
       - failedTemplate:
           errorPattern: "steward-example: ingress.enabled needs at least one ingress.hosts entry"
+  - it: marks the public edge by default
+    set:
+      ingress:
+        enabled: true
+        hosts:
+          - host: app.example.org
+            paths:
+              - {path: /, pathType: Prefix}
+    asserts:
+      - equal:
+          path: "metadata.annotations[\"nginx.ingress.kubernetes.io/configuration-snippet\"]"
+          value: "proxy_set_header X-Steward-Edge \"public\";\n"
+  - it: turns the edge header off
+    set:
+      ingress:
+        enabled: true
+        edgeHeader: false
+        hosts:
+          - host: app.example.org
+            paths:
+              - {path: /, pathType: Prefix}
+    asserts:
+      - notExists:
+          path: "metadata.annotations[\"nginx.ingress.kubernetes.io/configuration-snippet\"]"
+  - it: keeps an operator's own configuration-snippet annotation over the default
+    set:
+      ingress:
+        enabled: true
+        annotations:
+          nginx.ingress.kubernetes.io/configuration-snippet: "proxy_set_header X-Custom \"1\";\n"
+        hosts:
+          - host: app.example.org
+            paths:
+              - {path: /, pathType: Prefix}
+    asserts:
+      - equal:
+          path: "metadata.annotations[\"nginx.ingress.kubernetes.io/configuration-snippet\"]"
+          value: "proxy_set_header X-Custom \"1\";\n"

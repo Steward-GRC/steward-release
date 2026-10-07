@@ -1,0 +1,9 @@
+suite: umbrella gateway MFA and the public edge header
+templates:
+  - charts/gateway/templates/deployment.yaml
+tests:
+  - it: exposes gateway's MFA_ENFORCE as a visible, overridable value
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content: {name: MFA_ENFORCE, value: edge}

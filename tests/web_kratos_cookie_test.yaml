@@ -1,0 +1,33 @@
+suite: umbrella web sign-in wiring
+templates:
+  - charts/gateway/templates/deployment.yaml
+  - charts/web-staff/templates/deployment.yaml
+  - charts/web-admin/templates/deployment.yaml
+tests:
+  - it: exposes gateway's COOKIE_INSECURE as a visible, overridable value, off by default
+    template: charts/gateway/templates/deployment.yaml
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content: {name: COOKIE_INSECURE, value: "false"}
+  - it: lets an operator turn gateway's cookie security off for a local install
+    template: charts/gateway/templates/deployment.yaml
+    set:
+      gateway:
+        env:
+          - name: COOKIE_INSECURE
+            value: "true"
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content: {name: COOKIE_INSECURE, value: "true"}
+  - it: sets no KRATOS_PUBLIC_URL for either web app by default
+    template: charts/web-staff/templates/deployment.yaml
+    asserts: &noKratos
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          any: true
+          content: {name: KRATOS_PUBLIC_URL}
+  - it: sets no KRATOS_PUBLIC_URL for the admin app either
+    template: charts/web-admin/templates/deployment.yaml
+    asserts: *noKratos
