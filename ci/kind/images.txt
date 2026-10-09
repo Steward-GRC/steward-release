@@ -2,15 +2,15 @@
 # pinned commit. Bump a commit to test the chart against newer service code.
 #
 # <alias>      <owner/repo>                     <commit>                                  <Dockerfile>
-identity       Steward-GRC/steward-identity     ac0e8bc13f2067c372dd9233ae272d869e72fba4 Dockerfile
-core           Steward-GRC/steward-core         7f62d010c22f1d937528be41da6309c0b960eecd Dockerfile
-workflow       Steward-GRC/steward-workflow     0e054b1ee1c994f7ec2eedd91315d0a8768f463e Dockerfile
-obligations    Steward-GRC/steward-obligations  24fa974f819b1c37798675724ff0f4be28aae1f8 Dockerfile
-audit          Steward-GRC/steward-audit        b5cf28324c0d8ae74921db25161818b10b3d6169 Dockerfile
-delivery       Steward-GRC/steward-delivery     f4e8765b4fc709bf50c792de1ab46ccf8795ef51 Dockerfile
-pdf-renderer   Steward-GRC/steward-pdf-renderer 87323a588996e7c0987bf009936e0dc0e3b369e0 Dockerfile.operator
-collab         Steward-GRC/steward-collab       c66d112543b8c20d4b7b98d669413b7125d90b4a Dockerfile
-ai             Steward-GRC/steward-ai           851f64d454b2e9ee0b33d878a82f2e14d5df2518 Dockerfile
-ai-operator    Steward-GRC/steward-ai           851f64d454b2e9ee0b33d878a82f2e14d5df2518 Dockerfile.operator
-reporting      Steward-GRC/steward-reporting    fd01881f787def07b4838f9de6e1b1e7946a84c1 Dockerfile
-gateway        Steward-GRC/steward-gateway      c73ce95db00b46a72b64189518dc56151ad61fd9 Dockerfile
+identity       Steward-GRC/steward-identity     5090837ab6c084dbdba7353b7afc49e6530f0b39 Dockerfile
+core           Steward-GRC/steward-core         858bccc83597e6a74c213449224f9bd2d9a062b5 Dockerfile
+workflow       Steward-GRC/steward-workflow     e5306a934642b34230174235046089146b208f34 Dockerfile
+obligations    Steward-GRC/steward-obligations  a91ef8f24a45bb48ef263790c8ae4519312226bc Dockerfile
+audit          Steward-GRC/steward-audit        c9bccbeb7364c0ce8c16107a1a816d08b19f5f48 Dockerfile
+delivery       Steward-GRC/steward-delivery     ccd3aed6198441a0f56b3fd8fd8c7f2b1eb2bc1c Dockerfile
+pdf-renderer   Steward-GRC/steward-pdf-renderer a7b340533272840fcba4383ac198ccb57238f264 Dockerfile.operator
+collab         Steward-GRC/steward-collab       4a2594c6133f6f5bde213b89f052462560bd1f5d Dockerfile
+ai             Steward-GRC/steward-ai           d835b1ea93a239e38b7f00bafa82877c12ac248c Dockerfile
+ai-operator    Steward-GRC/steward-ai           d835b1ea93a239e38b7f00bafa82877c12ac248c Dockerfile.operator
+reporting      Steward-GRC/steward-reporting    b5eb754e65519b2c81024dce4d44ad9e1f93f022 Dockerfile
+gateway        Steward-GRC/steward-gateway      44da395dcad91f9bed5f29ffacd174052c08caa1 Dockerfile
