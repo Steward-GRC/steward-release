@@ -264,12 +264,16 @@ web-admin:
     enabled: true
     className: nginx
     hosts:
-    - host: steward-admin.example.org
+    - host: steward.example.org
       paths:
-      - {path: /, pathType: Prefix}
+      - {path: /admin, pathType: Prefix}
     tls:
-    - {hosts: [steward-admin.example.org], secretName: steward-web-admin-tls}
+    - {hosts: [steward.example.org], secretName: steward-web-staff-tls}
 ```
+
+The admin app always serves under `/admin` (its React Router basename), so route that path, never
+`/`: a request to `/` on the admin app returns 404. Above, it shares the staff app's host and TLS
+Secret; a host of its own works the same way, with the path still `/admin`.
 
 Each app's origin must also be in the gateway's allowed origins (its `ALLOWED_ORIGINS` setting).
 
