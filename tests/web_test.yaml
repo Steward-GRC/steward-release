@@ -40,16 +40,17 @@ tests:
     template: charts/web-staff/templates/ingress.yaml
     asserts:
       - hasDocuments: {count: 0}
-  - it: exposes the admin app on its own host when asked
+  - it: exposes the admin app under /admin, the base path it serves under, when asked
     template: charts/web-admin/templates/ingress.yaml
     set:
       web-admin:
         ingress:
           enabled: true
           hosts:
-            - host: admin.example.org
+            - host: steward.example.org
               paths:
-                - {path: /, pathType: Prefix}
+                - {path: /admin, pathType: Prefix}
     asserts:
-      - equal: {path: "spec.rules[0].host", value: admin.example.org}
+      - equal: {path: "spec.rules[0].host", value: steward.example.org}
+      - equal: {path: "spec.rules[0].http.paths[0].path", value: /admin}
       - equal: {path: "spec.rules[0].http.paths[0].backend.service.name", value: steward-web-admin}
