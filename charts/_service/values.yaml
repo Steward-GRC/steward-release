@@ -122,6 +122,12 @@ smtp:
   usernameKey: username
   passwordKey: password
 
+# The OTLP collector (host:port) the service exports traces to, passed as
+# OTEL_EXPORTER_OTLP_ENDPOINT. Empty falls back to global.otlpEndpoint; both
+# empty passes none, and the service runs with tracing off. An `env` entry
+# of the same name replaces it.
+otlpEndpoint: ""
+
 # Extra literal env vars: [{name: FOO, value: "bar"}] or
 # [{name: FOO, valueFrom: {secretKeyRef: {name: foo, key: bar}}}].
 env: []

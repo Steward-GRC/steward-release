@@ -1,0 +1,52 @@
+# Copyright 2026 The Steward Authors
+# SPDX-License-Identifier: Apache-2.0
+
+suite: tracing endpoint
+templates:
+  - deployment.yaml
+set:
+  aliasName: example
+  image:
+    repository: registry.example.org/steward-example
+    tag: v0.0.0
+tests:
+  - it: sets no endpoint by default, so the service runs with tracing off
+    asserts:
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          any: true
+          content: {name: OTEL_EXPORTER_OTLP_ENDPOINT}
+  - it: passes the global endpoint to the service
+    set:
+      global:
+        otlpEndpoint: otel.example.org:4317
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content: {name: OTEL_EXPORTER_OTLP_ENDPOINT, value: "otel.example.org:4317"}
+  - it: lets the alias's own endpoint win over the global one
+    set:
+      global:
+        otlpEndpoint: otel.example.org:4317
+      otlpEndpoint: otel-alt.example.org:4317
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content: {name: OTEL_EXPORTER_OTLP_ENDPOINT, value: "otel-alt.example.org:4317"}
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          content: {name: OTEL_EXPORTER_OTLP_ENDPOINT, value: "otel.example.org:4317"}
+  - it: lets an env entry replace it without a duplicate name
+    set:
+      global:
+        otlpEndpoint: otel.example.org:4317
+      env:
+        - name: OTEL_EXPORTER_OTLP_ENDPOINT
+          value: custom.example.org:4317
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content: {name: OTEL_EXPORTER_OTLP_ENDPOINT, value: "custom.example.org:4317"}
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          content: {name: OTEL_EXPORTER_OTLP_ENDPOINT, value: "otel.example.org:4317"}
