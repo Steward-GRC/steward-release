@@ -68,6 +68,10 @@ spec:
     metadata:
       labels: {app: steward-rabbitmq}
     spec:
+      # The probe execs as the container user. As root it creates a root-owned
+      # .erlang.cookie the server (rabbitmq, uid 100) then cannot read (eacces),
+      # so run the pod as the image's rabbitmq user.
+      securityContext: {runAsUser: 100, runAsGroup: 101, fsGroup: 101}
       containers:
         - name: rabbitmq
           image: docker.io/library/rabbitmq:4.1.8-alpine@sha256:33335c41151058d46086c04859e6b91bfdf97f9575efd3ca9709a20b5cd45aee
