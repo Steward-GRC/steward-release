@@ -393,7 +393,7 @@ pdf-renderer:
     value: steward-pdf-renderer
   # The image every render Job runs (the repo's Dockerfile.renderer).
   - name: RENDERER_IMAGE
-    value: ghcr.io/steward-grc/steward-pdf-renderer-renderer:v0.1.0
+    value: ghcr.io/steward-grc/steward-pdf-renderer-job:v0.1.0
   # The Secret every render Job loads whole (envFrom) for its object storage:
   # AWS_S3_ENDPOINT, AWS_REGION, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY and
   # AWS_S3_FORCE_PATH_STYLE, plus S3_BUCKET for delivery. delivery reads the

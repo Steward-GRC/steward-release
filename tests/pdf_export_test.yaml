@@ -50,6 +50,12 @@ tests:
       - contains:
           path: spec.template.spec.containers[0].env
           content: {name: S3_SECRET_NAME, value: steward-pdf-renderer-s3}
+  - it: runs the render Jobs from the image steward-pdf-renderer publishes (steward-pdf-renderer-job)
+    template: charts/pdf-renderer/templates/deployment.yaml
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content: {name: RENDERER_IMAGE, value: "ghcr.io/steward-grc/steward-pdf-renderer-job:v0.1.0"}
   - it: refuses PDF export on with pdf-renderer off
     template: templates/pdf-export.yaml
     set:
