@@ -1,0 +1,80 @@
+suite: sidecar containers
+templates:
+  - deployment.yaml
+set:
+  aliasName: example
+  image:
+    repository: registry.example.org/steward-example
+    tag: v0.0.0
+tests:
+  - it: renders one container and no sidecar by default
+    asserts:
+      - lengthEqual: {path: spec.template.spec.containers, count: 1}
+  - it: runs a sidecar in the same pod after the service container
+    set:
+      sidecars:
+        - name: render
+          image: {repository: registry.example.org/steward-render, tag: v0.0.0}
+          port: 8091
+          env:
+            - {name: PORT, value: "8091"}
+    asserts:
+      - lengthEqual: {path: spec.template.spec.containers, count: 2}
+      - equal: {path: "spec.template.spec.containers[0].name", value: example}
+      - equal: {path: "spec.template.spec.containers[1].name", value: render}
+      - equal: {path: "spec.template.spec.containers[1].image", value: "registry.example.org/steward-render:v0.0.0"}
+      - equal: {path: "spec.template.spec.containers[1].imagePullPolicy", value: IfNotPresent}
+      - contains: {path: "spec.template.spec.containers[1].env", content: {name: PORT, value: "8091"}}
+  - it: probes the sidecar from inside the container because it binds loopback
+    set:
+      sidecars:
+        - name: render
+          image: {repository: registry.example.org/steward-render, tag: v0.0.0}
+          port: 8091
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[1].readinessProbe.exec.command
+          value: [wget, -qO-, "http://127.0.0.1:8091/readyz"]
+      - equal:
+          path: spec.template.spec.containers[1].livenessProbe.exec.command
+          value: [wget, -qO-, "http://127.0.0.1:8091/livez"]
+  - it: hardens the sidecar like the service container
+    set:
+      sidecars:
+        - name: render
+          image: {repository: registry.example.org/steward-render, tag: v0.0.0}
+          port: 8091
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[1].securityContext
+          value:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: ["ALL"]}
+  - it: takes resources and a pull policy per sidecar
+    set:
+      sidecars:
+        - name: render
+          image: {repository: registry.example.org/steward-render, tag: v0.0.0, pullPolicy: Always}
+          port: 8091
+          resources:
+            limits: {memory: 256Mi}
+    asserts:
+      - equal: {path: "spec.template.spec.containers[1].imagePullPolicy", value: Always}
+      - equal: {path: "spec.template.spec.containers[1].resources.limits.memory", value: 256Mi}
+  - it: fails when a sidecar has no image tag
+    set:
+      sidecars:
+        - name: render
+          image: {repository: registry.example.org/steward-render}
+          port: 8091
+    asserts:
+      - failedTemplate: {}
+  - it: fails when a sidecar reuses the service container name
+    set:
+      sidecars:
+        - name: example
+          image: {repository: registry.example.org/steward-render, tag: v0.0.0}
+          port: 8091
+    asserts:
+      - failedTemplate: {}

@@ -102,6 +102,27 @@ upgrade leaves the keys alone. Back it up with identity's database. With
 `identityPolisSecrets.create: false` an operator creates a Secret of that name instead, for example
 a SealedSecret holding keys an admin then names as `secretRef`.
 
+## Email: the render sidecar and the SMTP relay
+
+obligations builds and sends every email (welcome, sign-in recovery, reminders, alerts). The pod
+runs two containers: the service and the `render` sidecar (the Node renderer from obligations'
+`render/` folder), reached on `127.0.0.1:8091` through `RENDER_SIDECAR_URL`. It is part of the
+service, set in `obligations.sidecars`; without it no mail can be built. The sidecar image
+(`ghcr.io/steward-grc/steward-obligations-render`) is built from obligations' `render/Dockerfile`.
+
+No relay ships in the chart. Set the relay under `obligations.smtp` (`host`, `port`, `from`,
+`startTLS`, `tlsInsecure`), and when it needs a login name an existing Secret with `username` and
+`password` keys in `obligations.smtp.secretName` (other key names: `usernameKey`, `passwordKey`):
+
+```sh
+kubectl -n steward create secret generic steward-smtp \
+  --from-literal=username=... --from-literal=password=...
+```
+
+Leave `secretName` empty for a relay that takes no login. The chart only reads the Secret; no
+credential lives in values. With no `host`, obligations has no relay and mail is not delivered.
+identity sends its one-time codes through its own `SMTP_*` settings (set under `identity.env`).
+
 ## Custom resources and API access
 
 The chart ships two CustomResourceDefinitions: `PdfRender` (`renders.steward-grc.com`, with
