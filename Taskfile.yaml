@@ -16,6 +16,11 @@ tasks:
     desc: Template unit tests for the reusable service chart (needs the helm-unittest plugin)
     cmds:
       - helm unittest charts/_service
+  test:go:
+    desc: Tests for steward-migrate and the release manifest validator
+    cmds:
+      - go vet ./...
+      - go test ./...
   license:
     desc: Verify every source file carries the Apache-2.0 license header (CI; never writes).
     cmds:

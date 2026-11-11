@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Steward-GRC/steward-release/schemas/release-manifest.schema.json",
+  "title": "Steward release manifest",
+  "description": "The one pinned file that names a release: every service image by digest, the core ref and the proto refs it was built against.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "release", "refs", "services"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "release": {
+      "description": "The release version without a leading v, or 0.0.0-placeholder in the committed template.",
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(-[0-9A-Za-z.-]+)?$"
+    },
+    "refs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["core", "proto"],
+      "properties": {
+        "core": { "$ref": "#/$defs/commit" },
+        "proto": {
+          "description": "The commit of each callee's repo that its callers pin their proto stubs to (the STEWARD_<SERVICE>_REF values of proto-refs.env), keyed by service name.",
+          "type": "object",
+          "minProperties": 1,
+          "propertyNames": { "$ref": "#/$defs/name" },
+          "additionalProperties": { "$ref": "#/$defs/commit" }
+        }
+      }
+    },
+    "services": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/service" }
+    }
+  },
+  "$defs": {
+    "name": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
+    "commit": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "service": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "image", "digest", "store"],
+      "properties": {
+        "name": { "$ref": "#/$defs/name" },
+        "image": {
+          "description": "The image repository with no tag and no digest; the digest field pins it.",
+          "type": "string",
+          "pattern": "^[a-z0-9.-]+(:[0-9]+)?(/[a-z0-9._-]+)+$"
+        },
+        "digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "store": {
+          "description": "postgres when the service owns a database that steward-migrate migrates; none otherwise.",
+          "enum": ["postgres", "none"]
+        },
+        "migrateAfter": {
+          "description": "Services (with store postgres) whose migrations run before this one's.",
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/name" }
+        }
+      }
+    }
+  }
+}
