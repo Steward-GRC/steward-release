@@ -4,3 +4,9 @@ ci/
 docs/
 .github/
 .claude/
+cmd/
+internal/
+schemas/
+go.mod
+go.sum
+release-manifest.json

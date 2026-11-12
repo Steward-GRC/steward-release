@@ -159,7 +159,8 @@ only.
 
 The render Jobs run as `steward-pdf-renderer`, a service account with no RBAC and no API token; it
 is the caller name delivery's allow-list expects on the HTML fetch. Set the Jobs' image with
-`pdf-renderer.baseEnv` `RENDERER_IMAGE` (or an `env` entry of the same name), and create the
+`pdf-renderer.baseEnv` `RENDERER_IMAGE` (default `ghcr.io/steward-grc/steward-pdf-renderer-job`, the image
+steward-pdf-renderer's `Dockerfile.renderer` publishes; or an `env` entry of the same name), and create the
 object-storage Secret the Jobs read (`steward-pdf-renderer-s3` by default) before the first export.
 
 ### ai's operator
@@ -344,6 +345,13 @@ builds `steward-<callee>:<port>` from the callee's Service name and its port in
 Each `global.servicePorts` entry must equal that alias's `port.number`, and the render fails when
 they differ, so a port change sets both. An `env` entry with the same name replaces a derived
 address, for a callee that runs outside the release.
+
+## Tracing
+
+Tracing is off by default: no service gets `OTEL_EXPORTER_OTLP_ENDPOINT`, and a service with that
+variable unset or empty exports nothing. To send traces, set `global.otlpEndpoint` to your
+collector's `host:port`, or `<service>.otlpEndpoint` for one service (it wins over the global). An
+`env` entry named `OTEL_EXPORTER_OTLP_ENDPOINT` replaces both.
 
 ## Access decisions
 

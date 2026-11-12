@@ -28,6 +28,15 @@ jobs:
     permissions:
       contents: read
     uses: ./.github/workflows/job-helm.yaml
+  # The Go tool (steward-migrate). Not a required check: the required context
+  # stays `checks / Build & Test`, the Helm job above.
+  go:
+    if: (github.event_name == 'pull_request' || github.event_name == 'merge_group') && github.event.pull_request.draft != true
+    permissions:
+      contents: read
+    uses: Steward-GRC/.github/.github/workflows/go.yml@main
+    with:
+      timeout-minutes: 15
   kind:
     if: (github.event_name == 'pull_request' || github.event_name == 'merge_group') && github.event.pull_request.draft != true
     permissions:

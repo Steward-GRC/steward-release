@@ -51,11 +51,15 @@ Steward install, alongside the appliance.
 │   │   └── tests/              helm-unittest suites for the reusable chart
 │   ├── _pdf-renderer-crds/     the PdfRender CRD, vendored (crds/ only)
 │   └── _ai-crds/               the PolicyAIJob CRD, vendored (crds/ only)
+├── release-manifest.json      the pinned release manifest (a placeholder template in the tree)
+├── schemas/                   the manifest's JSON Schema
+├── cmd/steward-migrate/       the migration tool (dry-run by default)
+├── internal/                  manifest (load, validate), migrate (order, plan, apply), pgstore (Postgres)
 ├── scripts/                   sync-crds.sh, its CRD pins (crds-upstream.txt), check-cluster-scoped.sh
 ├── ci/kind/                   the kind install test: image pins, dependencies, values, run.sh
 ├── templates/                 the umbrella's install notes (NOTES.txt), its service-port check (addresses.yaml) and its PDF-export check (pdf-export.yaml)
 ├── tests/                     helm-unittest suites for the umbrella's per-service wiring
-├── docs/                      install, upgrade and service-to-service auth
+├── docs/                      install, upgrade, release manifest and service-to-service auth
 ├── .github/workflows/         this repo's CI: helm lint/unittest/template/kubeconform, kind install, DCO, secrets
 └── README.md                  what this is, how to install, where to look
 ```
