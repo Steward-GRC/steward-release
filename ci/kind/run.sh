@@ -158,7 +158,16 @@ kubectl -n "$ns" logs "$done_pod" --tail=1
 image_args=()
 for a in $aliases; do
   commit=$(awk -v a="$a" '$1 == a { print $3 }' "$here/images.txt")
-  image_args+=(--set "$a.image.repository=steward-ci/$a" --set "$a.image.tag=${commit:0:12}")
+  case "$a" in
+    # The render sidecar is a container of the obligations pod, not a release
+    # alias. Helm replaces a list whole, so the entry is given in full.
+    obligations-render)
+      image_args+=(--set "obligations.sidecars[0].name=render" --set "obligations.sidecars[0].port=8091"
+        --set-string "obligations.sidecars[0].env[0].name=PORT" --set-string "obligations.sidecars[0].env[0].value=8091"
+        --set "obligations.sidecars[0].image.repository=steward-ci/$a" --set "obligations.sidecars[0].image.tag=${commit:0:12}") ;;
+    *)
+      image_args+=(--set "$a.image.repository=steward-ci/$a" --set "$a.image.tag=${commit:0:12}") ;;
+  esac
 done
 
 log "helm install"

@@ -12,7 +12,7 @@ here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 alias_name="${1:?usage: $0 <alias> [workdir]}"
 work="${2:-$(mktemp -d)}"
 
-read -r repo commit dockerfile < <(awk -v a="$alias_name" '$1 == a { print $2, $3, $4 }' "$here/images.txt")
+read -r repo commit dockerfile context < <(awk -v a="$alias_name" '$1 == a { print $2, $3, $4, $5 }' "$here/images.txt")
 if [ -z "${repo:-}" ]; then
   echo "no alias $alias_name in $here/images.txt" >&2
   exit 2
@@ -32,7 +32,7 @@ start=$(date +%s)
 build=(docker build)
 if [ -n "${BUILDER:-}" ]; then build=(docker buildx build --builder "$BUILDER" --load); fi
 "${build[@]}" -q -f "$src/$dockerfile" -t "$tag" \
-  --build-arg VERSION="ci-${commit:0:12}" --build-arg COMMIT="$commit" "$src" >/dev/null
+  --build-arg VERSION="ci-${commit:0:12}" --build-arg COMMIT="$commit" "$src/${context:-.}" >/dev/null
 echo "built $tag in $(( $(date +%s) - start ))s"
 if [ -n "${SAVE_DIR:-}" ]; then
   mkdir -p "$SAVE_DIR"

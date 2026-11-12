@@ -151,6 +151,36 @@ spec:
             {{- range .Values.env }}
             {{- $overridden = append $overridden .name }}
             {{- end }}
+            {{- with .Values.smtp }}
+            {{- if .host }}
+            {{- $smtp := list
+                  (dict "name" "SMTP_HOST" "value" .host)
+                  (dict "name" "SMTP_PORT" "value" (toString .port))
+                  (dict "name" "SMTP_STARTTLS" "value" (toString .startTLS))
+                  (dict "name" "SMTP_TLS_INSECURE" "value" (toString .tlsInsecure)) }}
+            {{- if .from }}
+            {{- $smtp = append $smtp (dict "name" "SMTP_FROM" "value" .from) }}
+            {{- end }}
+            {{- if .secretName }}
+            {{- $smtp = append $smtp (dict "name" "SMTP_USERNAME" "secret" (dict "name" .secretName "key" .usernameKey)) }}
+            {{- $smtp = append $smtp (dict "name" "SMTP_PASSWORD" "secret" (dict "name" .secretName "key" .passwordKey)) }}
+            {{- end }}
+            {{- /* The credentials are Secret references only; an operator env entry of the same name wins. */}}
+            {{- range $smtp }}
+            {{- if not (has .name $overridden) }}
+            - name: {{ .name }}
+              {{- if .secret }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .secret.name }}
+                  key: {{ .secret.key }}
+              {{- else }}
+              value: {{ .value | quote }}
+              {{- end }}
+            {{- end }}
+            {{- end }}
+            {{- end }}
+            {{- end }}
             {{- range (include "service-chart.callAddresses" . | fromJsonArray) }}
             {{- if not (has .name $overridden) }}
             - name: {{ .name }}
@@ -196,6 +226,41 @@ spec:
               readOnly: true
             {{- end }}
           {{- end }}
+        {{- range .Values.sidecars }}
+        {{- $sidecarName := required "sidecars: name is required" .name }}
+        {{- if eq $sidecarName ($.Values.aliasName | default $.Chart.Name) }}
+        {{- fail (printf "%s: sidecar %q uses the service container name" (include "service-chart.fullname" $) $sidecarName) }}
+        {{- end }}
+        - name: {{ $sidecarName }}
+          image: "{{ required (printf "sidecar %s: image.repository is required" $sidecarName) .image.repository }}:{{ required (printf "sidecar %s: image.tag is required" $sidecarName) .image.tag }}"
+          imagePullPolicy: {{ .image.pullPolicy | default "IfNotPresent" }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          {{- with .env }}
+          env:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- /* A sidecar binds loopback, so the kubelet cannot reach it by pod IP; probe from inside the container. */}}
+          readinessProbe:
+            exec:
+              command: [wget, -qO-, {{ printf "http://127.0.0.1:%v/readyz" .port | quote }}]
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 3
+          livenessProbe:
+            exec:
+              command: [wget, -qO-, {{ printf "http://127.0.0.1:%v/livez" .port | quote }}]
+            initialDelaySeconds: 10
+            periodSeconds: 15
+            timeoutSeconds: 3
+          {{- with .resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+        {{- end }}
       {{- $jwksCreds := include "service-chart.jwksCredentials" . }}
       {{- $identity := or .Values.workloadAuth.caller $jwksCreds }}
       {{- if or $identity .Values.devQuickLogin.enabled }}
