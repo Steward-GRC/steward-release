@@ -40,6 +40,7 @@ and high-availability paths, and [docs/upgrade.md](docs/upgrade.md) for upgrades
 
 - [Install](docs/install.md): Secrets, bring-your-own Postgres, high availability.
 - [Upgrade](docs/upgrade.md).
+- [Release manifest and steward-migrate](docs/release-manifest.md): the pinned list of images and refs, and the migration tool.
 - [Service-to-service authentication](docs/service-to-service-auth.md).
 
 ## 🛠 Develop
@@ -50,7 +51,8 @@ helm template steward . -f values.yaml --namespace steward
 ```
 
 Pipe the template output to `kubeconform` (pinned in `.github/workflows/checks.yml`) to validate
-the rendered manifests without a cluster. `task test` runs the helm-unittest suites.
+the rendered manifests without a cluster. `task test` runs the helm-unittest suites; `task test:go` runs the Go tests for `steward-migrate`
+and the manifest validator.
 
 The install test ([`ci/kind/`](ci/kind)) builds every service image from the commit pinned in
 `ci/kind/images.txt`, installs the chart on a kind cluster with minimal bring-your-own
