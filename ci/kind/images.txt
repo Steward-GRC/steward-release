@@ -1,11 +1,12 @@
 # The service images the kind install test builds, each from its repo at a
 # pinned commit. Bump a commit to test the chart against newer service code.
 #
-# <alias>      <owner/repo>                     <commit>                                  <Dockerfile>
+# <alias>      <owner/repo>                     <commit>                                  <Dockerfile> [<build context dir>]
 identity       Steward-GRC/steward-identity     5090837ab6c084dbdba7353b7afc49e6530f0b39 Dockerfile
 core           Steward-GRC/steward-core         858bccc83597e6a74c213449224f9bd2d9a062b5 Dockerfile
 workflow       Steward-GRC/steward-workflow     e5306a934642b34230174235046089146b208f34 Dockerfile
 obligations    Steward-GRC/steward-obligations  a91ef8f24a45bb48ef263790c8ae4519312226bc Dockerfile
+obligations-render Steward-GRC/steward-obligations a91ef8f24a45bb48ef263790c8ae4519312226bc render/Dockerfile render
 audit          Steward-GRC/steward-audit        c9bccbeb7364c0ce8c16107a1a816d08b19f5f48 Dockerfile
 delivery       Steward-GRC/steward-delivery     ccd3aed6198441a0f56b3fd8fd8c7f2b1eb2bc1c Dockerfile
 pdf-renderer   Steward-GRC/steward-pdf-renderer a7b340533272840fcba4383ac198ccb57238f264 Dockerfile.operator

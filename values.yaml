@@ -213,6 +213,34 @@ obligations:
     allowedServiceAccounts:
     - gateway
     - identity
+  # Every email is rendered by the Node render sidecar (obligations' render/
+  # folder), run as a second container in this pod and reached on loopback.
+  # Without it no mail can be built, so the sidecar is part of the service,
+  # not an option.
+  sidecars:
+  - name: render
+    image:
+      repository: ghcr.io/steward-grc/steward-obligations-render
+      tag: v0.1.0
+    port: 8091
+    env:
+    - {name: PORT, value: '8091'}
+  baseEnv:
+  - name: RENDER_SIDECAR_URL
+    value: http://127.0.0.1:8091
+  # The mail relay. No host ships, so no address or credential is in this
+  # file: set `host` (and `from`) for your relay, and name an existing Secret
+  # with `username` and `password` keys in `secretName` when it needs a login
+  # (kubectl create secret generic steward-smtp --from-literal=username=...
+  # --from-literal=password=...). Leave `secretName` empty for an open relay.
+  # With no host obligations holds mail it cannot send and reports it.
+  smtp:
+    host: ''
+    port: 587
+    from: ''
+    startTLS: true
+    tlsInsecure: false
+    secretName: ''
 
 audit:
   enabled: true
