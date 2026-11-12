@@ -100,6 +100,28 @@ extraServiceAccounts: []
 # An `env` entry with the same name replaces it.
 calls: []
 
+# More containers in the same pod, sharing its network namespace (a service
+# reaches one on 127.0.0.1): [{name, image: {repository, tag, pullPolicy},
+# port, env, resources}]. Each runs with the service container's hardening
+# and is probed with /readyz and /livez from inside the container (exec), so
+# it can stay bound to loopback. The name must differ from the service's.
+sidecars: []
+
+# SMTP relay settings for a service that sends mail itself (SMTP_HOST, _PORT,
+# _FROM, _STARTTLS, _TLS_INSECURE). Nothing is set until `host` is. The
+# username and password come from an existing Secret (`secretName`, keys
+# `usernameKey` and `passwordKey`); the chart holds no credential. Leave
+# `secretName` empty for an unauthenticated relay.
+smtp:
+  host: ""
+  port: 587
+  from: ""
+  startTLS: true
+  tlsInsecure: false
+  secretName: ""
+  usernameKey: username
+  passwordKey: password
+
 # Extra literal env vars: [{name: FOO, value: "bar"}] or
 # [{name: FOO, valueFrom: {secretKeyRef: {name: foo, key: bar}}}].
 env: []

@@ -1,0 +1,30 @@
+suite: umbrella obligations mail
+templates:
+  - charts/obligations/templates/deployment.yaml
+tests:
+  - it: runs the render sidecar in the obligations pod
+    asserts:
+      - lengthEqual: {path: spec.template.spec.containers, count: 2}
+      - equal: {path: "spec.template.spec.containers[1].name", value: render}
+      - equal: {path: "spec.template.spec.containers[1].image", value: "ghcr.io/steward-grc/steward-obligations-render:v0.1.0"}
+      - contains: {path: "spec.template.spec.containers[1].env", content: {name: PORT, value: "8091"}}
+  - it: points obligations at the sidecar on loopback
+    asserts:
+      - contains: {path: "spec.template.spec.containers[0].env", content: {name: RENDER_SIDECAR_URL, value: "http://127.0.0.1:8091"}}
+  - it: takes the SMTP relay from the obligations smtp values and the credentials from a Secret
+    set:
+      obligations:
+        smtp:
+          host: smtp.example.org
+          from: no-reply@example.org
+          secretName: steward-smtp
+    asserts:
+      - contains: {path: "spec.template.spec.containers[0].env", content: {name: SMTP_HOST, value: smtp.example.org}}
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: SMTP_PASSWORD
+            valueFrom: {secretKeyRef: {name: steward-smtp, key: password}}
+  - it: ships no relay host by default so no secret or address is in the repo
+    asserts:
+      - notContains: {path: "spec.template.spec.containers[0].env", any: true, content: {name: SMTP_HOST}}

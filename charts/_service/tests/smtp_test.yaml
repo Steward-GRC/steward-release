@@ -1,0 +1,58 @@
+suite: smtp settings
+templates:
+  - deployment.yaml
+set:
+  aliasName: example
+  image:
+    repository: registry.example.org/steward-example
+    tag: v0.0.0
+tests:
+  - it: sets no SMTP variable when no host is given
+    asserts:
+      - notContains: {path: "spec.template.spec.containers[0].env", content: {name: SMTP_HOST, value: ""}}
+      - notContains: {path: "spec.template.spec.containers[0].env", any: true, content: {name: SMTP_PORT}}
+  - it: passes the relay settings as plain values
+    set:
+      smtp:
+        host: smtp.example.org
+        port: 2525
+        from: no-reply@example.org
+        startTLS: false
+        tlsInsecure: true
+    asserts:
+      - contains: {path: "spec.template.spec.containers[0].env", content: {name: SMTP_HOST, value: smtp.example.org}}
+      - contains: {path: "spec.template.spec.containers[0].env", content: {name: SMTP_PORT, value: "2525"}}
+      - contains: {path: "spec.template.spec.containers[0].env", content: {name: SMTP_FROM, value: no-reply@example.org}}
+      - contains: {path: "spec.template.spec.containers[0].env", content: {name: SMTP_STARTTLS, value: "false"}}
+      - contains: {path: "spec.template.spec.containers[0].env", content: {name: SMTP_TLS_INSECURE, value: "true"}}
+  - it: reads the username and password from an existing Secret and never as plain values
+    set:
+      smtp:
+        host: smtp.example.org
+        secretName: steward-smtp
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: SMTP_USERNAME
+            valueFrom: {secretKeyRef: {name: steward-smtp, key: username}}
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: SMTP_PASSWORD
+            valueFrom: {secretKeyRef: {name: steward-smtp, key: password}}
+  - it: leaves the credentials out when no Secret is named (an unauthenticated relay)
+    set:
+      smtp:
+        host: smtp.example.org
+    asserts:
+      - notContains: {path: "spec.template.spec.containers[0].env", any: true, content: {name: SMTP_PASSWORD}}
+  - it: lets an operator env entry replace an SMTP setting without a duplicate name
+    set:
+      smtp:
+        host: smtp.example.org
+      env:
+        - {name: SMTP_HOST, value: other.example.org}
+    asserts:
+      - contains: {path: "spec.template.spec.containers[0].env", content: {name: SMTP_HOST, value: other.example.org}}
+      - notContains: {path: "spec.template.spec.containers[0].env", content: {name: SMTP_HOST, value: smtp.example.org}}
