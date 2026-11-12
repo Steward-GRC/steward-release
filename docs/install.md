@@ -159,7 +159,8 @@ only.
 
 The render Jobs run as `steward-pdf-renderer`, a service account with no RBAC and no API token; it
 is the caller name delivery's allow-list expects on the HTML fetch. Set the Jobs' image with
-`pdf-renderer.baseEnv` `RENDERER_IMAGE` (or an `env` entry of the same name), and create the
+`pdf-renderer.baseEnv` `RENDERER_IMAGE` (default `ghcr.io/steward-grc/steward-pdf-renderer-job`, the image
+steward-pdf-renderer's `Dockerfile.renderer` publishes; or an `env` entry of the same name), and create the
 object-storage Secret the Jobs read (`steward-pdf-renderer-s3` by default) before the first export.
 
 ### ai's operator
