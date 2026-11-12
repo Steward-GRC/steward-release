@@ -346,6 +346,13 @@ Each `global.servicePorts` entry must equal that alias's `port.number`, and the 
 they differ, so a port change sets both. An `env` entry with the same name replaces a derived
 address, for a callee that runs outside the release.
 
+## Tracing
+
+Tracing is off by default: no service gets `OTEL_EXPORTER_OTLP_ENDPOINT`, and a service with that
+variable unset or empty exports nothing. To send traces, set `global.otlpEndpoint` to your
+collector's `host:port`, or `<service>.otlpEndpoint` for one service (it wins over the global). An
+`env` entry named `OTEL_EXPORTER_OTLP_ENDPOINT` replaces both.
+
 ## Access decisions
 
 `core` and `gateway` decide access in-process with the steward-authz Go module, built into each

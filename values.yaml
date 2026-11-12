@@ -23,6 +23,10 @@ identityPolisSecrets:
   name: steward-identity-polis-secrets
 
 global:
+  # The OTLP collector (host:port) every service exports traces to. Empty
+  # (the default) turns tracing off. Set `<alias>.otlpEndpoint` for one
+  # service instead.
+  otlpEndpoint: ""
   # Each service's main port, for the addresses the chart gives the services
   # that call it (`<alias>.calls`: steward-<alias>:<port>). Each must equal
   # that alias's `port.number`; the render fails otherwise, so change both.
