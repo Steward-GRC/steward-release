@@ -181,6 +181,11 @@ spec:
             {{- end }}
             {{- end }}
             {{- end }}
+            {{- $otlp := .Values.otlpEndpoint | default (dig "otlpEndpoint" "" (.Values.global | default dict)) }}
+            {{- if and $otlp (not (has "OTEL_EXPORTER_OTLP_ENDPOINT" $overridden)) }}
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: {{ $otlp | quote }}
+            {{- end }}
             {{- range (include "service-chart.callAddresses" . | fromJsonArray) }}
             {{- if not (has .name $overridden) }}
             - name: {{ .name }}
