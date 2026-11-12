@@ -16,9 +16,11 @@ helm upgrade steward . -f values.yaml [-f values-ha-example.yaml | -f values-byo
   lease-based failover); this chart never restarts a Postgres instance by touching anything other
   than the values the chart passes it (`replicas`, the image tag the subchart pins, resource
   requests). Changing a data-owning service's database name, user or `passwordSecretName` is a
-  migration, not an upgrade — coordinate it with `steward-migrate` once that tool exists.
-- **Migrations:** each service's own baseline migration runs itself, inside its own image, on
-  start-up. This chart has no migration Job of its own.
+  migration, not an upgrade — coordinate it with `steward-migrate` (see [release-manifest.md](release-manifest.md)).
+- **Migrations:** each service's own migrations run themselves, inside its own image, on start-up.
+  This chart has no migration Job of its own. To see what an upgrade would run first, or to migrate
+  every store in a fixed order before the new images start, use `steward-migrate`: it plans by
+  default and only applies with `--apply` ([release-manifest.md](release-manifest.md)).
 - **Workload auth:** every callee runs with `workloadAuth.authMode: enabled` by default. Upgrading
   from a release that ran a service with `authMode: disabled` (core did) is itself an upgrade
   step: every service in its `allowedServiceAccounts` list must already send a token (check each

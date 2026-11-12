@@ -1,0 +1,137 @@
+{
+  "schemaVersion": 1,
+  "release": "0.0.0-placeholder",
+  "refs": {
+    "core": "0000000000000000000000000000000000000000",
+    "proto": {
+      "ai": "0000000000000000000000000000000000000000",
+      "audit": "0000000000000000000000000000000000000000",
+      "collab": "0000000000000000000000000000000000000000",
+      "core": "0000000000000000000000000000000000000000",
+      "delivery": "0000000000000000000000000000000000000000",
+      "identity": "0000000000000000000000000000000000000000",
+      "obligations": "0000000000000000000000000000000000000000",
+      "reporting": "0000000000000000000000000000000000000000",
+      "workflow": "0000000000000000000000000000000000000000"
+    }
+  },
+  "services": [
+    {
+      "name": "identity",
+      "image": "ghcr.io/steward-grc/steward-identity",
+      "digest": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+      "store": "postgres",
+      "migrateAfter": [
+        "audit"
+      ]
+    },
+    {
+      "name": "core",
+      "image": "ghcr.io/steward-grc/steward-core",
+      "digest": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+      "store": "postgres",
+      "migrateAfter": [
+        "audit",
+        "identity"
+      ]
+    },
+    {
+      "name": "workflow",
+      "image": "ghcr.io/steward-grc/steward-workflow",
+      "digest": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+      "store": "postgres",
+      "migrateAfter": [
+        "audit",
+        "identity",
+        "core"
+      ]
+    },
+    {
+      "name": "obligations",
+      "image": "ghcr.io/steward-grc/steward-obligations",
+      "digest": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+      "store": "postgres",
+      "migrateAfter": [
+        "audit",
+        "identity",
+        "core"
+      ]
+    },
+    {
+      "name": "audit",
+      "image": "ghcr.io/steward-grc/steward-audit",
+      "digest": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+      "store": "postgres"
+    },
+    {
+      "name": "delivery",
+      "image": "ghcr.io/steward-grc/steward-delivery",
+      "digest": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+      "store": "postgres",
+      "migrateAfter": [
+        "audit",
+        "core"
+      ]
+    },
+    {
+      "name": "pdf-renderer",
+      "image": "ghcr.io/steward-grc/steward-pdf-renderer",
+      "digest": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+      "store": "none"
+    },
+    {
+      "name": "collab",
+      "image": "ghcr.io/steward-grc/steward-collab",
+      "digest": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+      "store": "postgres",
+      "migrateAfter": [
+        "audit",
+        "identity",
+        "core"
+      ]
+    },
+    {
+      "name": "ai",
+      "image": "ghcr.io/steward-grc/steward-ai",
+      "digest": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+      "store": "postgres",
+      "migrateAfter": [
+        "audit"
+      ]
+    },
+    {
+      "name": "ai-operator",
+      "image": "ghcr.io/steward-grc/steward-ai-operator",
+      "digest": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+      "store": "none"
+    },
+    {
+      "name": "reporting",
+      "image": "ghcr.io/steward-grc/steward-reporting",
+      "digest": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+      "store": "postgres",
+      "migrateAfter": [
+        "audit",
+        "identity"
+      ]
+    },
+    {
+      "name": "gateway",
+      "image": "ghcr.io/steward-grc/steward-gateway",
+      "digest": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+      "store": "none"
+    },
+    {
+      "name": "web-staff",
+      "image": "ghcr.io/steward-grc/steward-web-staff",
+      "digest": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+      "store": "none"
+    },
+    {
+      "name": "web-admin",
+      "image": "ghcr.io/steward-grc/steward-web-admin",
+      "digest": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+      "store": "none"
+    }
+  ]
+}
