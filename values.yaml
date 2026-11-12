@@ -717,9 +717,12 @@ web-admin:
     className: ''
     annotations: {}
     hosts: []
-    # - host: steward-admin.example.org
+    # The admin app always serves under /admin (its React Router basename), so
+    # route that path; a path of / returns 404. Share the staff app's host or
+    # give it a host of its own.
+    # - host: steward.example.org
     #   paths:
-    #   - {path: /, pathType: Prefix}
+    #   - {path: /admin, pathType: Prefix}
     tls: []
 
 # ---------------------------------------------------------------------------
