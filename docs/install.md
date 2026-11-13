@@ -320,6 +320,11 @@ Secret; a host of its own works the same way, with the path still `/admin`.
 
 Each app's origin must also be in the gateway's allowed origins (its `ALLOWED_ORIGINS` setting).
 
+Both apps run with `TRUST_PROXY=true` (set in `baseEnv`, so your own `env` entries add to it). The apps' server then reads
+`X-Forwarded-Proto` and `X-Forwarded-Host` from the ingress; without them a sign-in behind a TLS-terminating ingress
+comes out `http://` against the browser's `https://` Origin and the form POST is refused with 400. If your proxy chain
+cannot forward the original scheme and host, set `ALLOWED_ACTION_ORIGINS` (hosts, comma-separated) in the app's `env`.
+
 ### Second-factor enforcement at the public edge
 
 gateway's `MFA_ENFORCE` (a `gateway.env` value) decides when a signed-in user is asked for a
