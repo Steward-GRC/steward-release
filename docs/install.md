@@ -371,6 +371,37 @@ web-staff:
 Local and kind installs only; the chart's own shipped defaults never turn this on, and the
 runtime switch does nothing against a release image that wasn't built with `DEV_QUICK_LOGIN=true`.
 
+## First-run setup
+
+A fresh install has no account. The gateway creates the root account through `POST /setup/bootstrap`,
+guarded by the `SETUP_TOKEN` value in the gateway's `env` (empty turns first-run setup off, so give
+it a value from a Secret the same way as the other settings). The gateway has no Ingress and the web
+apps proxy only `/query` and `/collab/ws`, so reach the endpoint with a port-forward, from a machine
+that can run `kubectl` against the cluster, and close it when you are done:
+
+```bash
+kubectl -n steward port-forward svc/steward-gateway 8080:8080 &
+curl -s http://127.0.0.1:8080/setup/state            # {"needsSetup":true} on a fresh install
+```
+
+Send the token and the new root account's password in the request body, read from a Secret and a
+prompt so neither lands in your shell history or process list (the account's `email` is the sign-in
+identifier):
+
+```bash
+read -rs -p 'root password: ' ROOT_PW; echo
+TOKEN=$(kubectl -n steward get secret <setup-token-secret> -o jsonpath='{.data.<key>}' | base64 -d)
+jq -n --arg t "$TOKEN" --arg p "$ROOT_PW" \
+  '{setupToken: $t, username: "root", email: "root@example.org", password: $p}' \
+  | curl -s -X POST -H 'Content-Type: application/json' --data @- http://127.0.0.1:8080/setup/bootstrap
+kill %1
+```
+
+`/setup/state` then answers `{"needsSetup":false}`. After that, sign in through a web app with the
+email and password. With `MFA_ENFORCE=always` (the default) that sign-in asks for a second factor;
+a test install that cannot use one sets `edge` or `never` (see
+[Second-factor enforcement](#second-factor-enforcement-at-the-public-edge)).
+
 ## Service addresses
 
 The chart gives every service the addresses of the services it calls (`CORE_GRPC_ADDR`,
