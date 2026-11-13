@@ -7,9 +7,8 @@ chart when you already run Kubernetes and want to bring your own.
 ## Before you install
 
 1. A Kubernetes cluster, 1.29 or newer, with its own OIDC service-account issuer reachable at
-   `https://kubernetes.default.svc.cluster.local` (the default on most clusters since 1.21;
-   override `<service>.workloadAuth.oidc.issuer`/`jwksUrl` in `charts/_service/values.yaml` for a
-   cluster with a different `--service-account-issuer`).
+   `https://kubernetes.default.svc.cluster.local` (kind's value; see "Service-account issuer on
+   other clusters" below for k0s, k3s and the rest).
 2. A namespace for the release (the examples below use `steward`).
 3. The PdfRender and PolicyAIJob CRDs, installed once per cluster by a cluster-admin (see "Custom
    resources and API access"), unless you set `crds.install: true`.
@@ -22,6 +21,28 @@ chart when you already run Kubernetes and want to bring your own.
 6. The image repository and tag for each service, once its own repo publishes a release. The
    defaults in `values.yaml` are placeholders (`ghcr.io/steward-grc/steward-<service>:v0.1.0`);
    override them with `--set <service>.image.tag=...` or your own values file.
+
+## Service-account issuer on other clusters
+
+Services call each other with service-account tokens, and every callee checks the token's `iss`
+claim. The chart defaults to `https://kubernetes.default.svc.cluster.local`, which is what kind
+issues. Other distributions differ: k0s, for one, issues `https://kubernetes.default.svc`. A wrong
+issuer rejects every service-to-service call with `wrong iss`.
+
+Read the issuer your cluster uses:
+
+```sh
+kubectl get --raw /.well-known/openid-configuration
+```
+
+Set the `issuer` value it returns once, for every service:
+
+```sh
+helm install steward . --set global.serviceAccountIssuer=https://kubernetes.default.svc
+```
+
+A `<service>.workloadAuth.oidc.issuer` value still wins over the global for that one service. Only
+the issuer follows the global; the JWKS URL stays the in-cluster API server address.
 
 ## A managed-Postgres install
 

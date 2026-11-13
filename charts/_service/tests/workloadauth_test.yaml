@@ -37,6 +37,43 @@ tests:
       - contains:
           path: spec.template.spec.containers[0].env
           content: {name: WORKLOAD_ALLOWED_SERVICEACCOUNTS, value: "NAMESPACE/steward-gateway,NAMESPACE/steward-core"}
+  - it: takes the issuer from global.serviceAccountIssuer when the service sets none
+    set:
+      global:
+        serviceAccountIssuer: https://kubernetes.default.svc
+      workloadAuth:
+        callee: true
+        allowedServiceAccounts: [gateway]
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content: {name: WORKLOAD_OIDC_ISSUER, value: "https://kubernetes.default.svc"}
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content: {name: WORKLOAD_OIDC_JWKS_URL, value: "https://kubernetes.default.svc.cluster.local/openid/v1/jwks"}
+  - it: lets the service's own issuer win over global.serviceAccountIssuer
+    set:
+      global:
+        serviceAccountIssuer: https://kubernetes.default.svc
+      workloadAuth:
+        callee: true
+        allowedServiceAccounts: [gateway]
+        oidc:
+          issuer: https://issuer.example.org
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content: {name: WORKLOAD_OIDC_ISSUER, value: "https://issuer.example.org"}
+  - it: keeps the kind issuer when neither the service nor the global sets one
+    set:
+      global: {}
+      workloadAuth:
+        callee: true
+        allowedServiceAccounts: [gateway]
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content: {name: WORKLOAD_OIDC_ISSUER, value: "https://kubernetes.default.svc.cluster.local"}
   - it: emits only WORKLOAD_AUTH=disabled for a disabled callee
     set:
       workloadAuth:

@@ -108,6 +108,16 @@ runs only). The services accept nothing else.
 {{- end -}}
 
 {{/*
+The OIDC issuer a callee expects in the caller token's iss claim: the
+service's own workloadAuth.oidc.issuer, else global.serviceAccountIssuer
+(set once on the umbrella), else the kind value.
+*/}}
+{{- define "service-chart.oidcIssuer" -}}
+{{- $g := (.Values.global | default dict).serviceAccountIssuer -}}
+{{- .Values.workloadAuth.oidc.issuer | default $g | default "https://kubernetes.default.svc.cluster.local" -}}
+{{- end -}}
+
+{{/*
 "true" for an enabled callee: it fetches the issuer's JWKS and gets the
 second (default-audience) token and the cluster CA mounted for that.
 */}}
