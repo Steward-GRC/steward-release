@@ -64,6 +64,15 @@ for a in $(awk '!/^#/ && NF {print $1}' ci/kind/images.txt); do ci/kind/build-im
 KIND_CLUSTER=steward-ci ci/kind/run.sh   # creates the cluster if needed; never deletes it
 ```
 
+### Bumping the pins
+
+`ci/kind/images.txt` is tested against the commit it pins, so it can fall behind a service's
+`main`. A weekday scheduled run of the `pins` job (and a manual run) fails when any pin is behind;
+pull requests only self-test the checker, so one service merging does not block unrelated PRs. To
+bump, run `ci/kind/check-pins.sh` to see the drift and `ci/kind/check-pins.sh --update` to move
+every pin to its repo's `main` head, then open a PR; the kind install job in that PR builds the new
+pins and installs the chart. Bump before a release candidate, and whenever the scheduled run fails.
+
 A re-run against the same cluster reuses the images already on its node and the Secrets it
 generated the first time, so its Postgres keeps accepting the service passwords.
 
