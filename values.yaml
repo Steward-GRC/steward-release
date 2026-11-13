@@ -645,16 +645,19 @@ gateway:
   - {service: collab, env: STEWARD_COLLAB_ADDR}
   - {service: ai, env: STEWARD_AI_ADDR}
   - {service: reporting, env: STEWARD_REPORTING_ADDR}
-  # Visible, overridable defaults equal to gateway's own (internal/config):
-  # MFA_ENFORCE=edge asks a sign-in for a second factor only when it carries
-  # the public edge's header (the web apps' Ingress sets it; edgeHeader
-  # above). Set to always or never to change the enforcement itself.
+  # Visible, overridable defaults. MFA_ENFORCE=always asks every sign-in for a
+  # second factor, which needs nothing from the ingress controller. gateway's
+  # own default, edge, asks only when a sign-in carries the public edge's
+  # header, and with no header set it would never ask; choose edge only after
+  # one of the two edge header options in docs/install.md is in place (the
+  # web apps' ingress.edgeHeader, or the controller ConfigMap), and never to
+  # silence the prompt. Set it to never only to turn the enforcement off.
   # COOKIE_INSECURE stays false here; flip it only for a local/kind install
   # with no TLS in front of the gateway, never in a value this chart ships
   # for anything else.
   env:
   - name: MFA_ENFORCE
-    value: edge
+    value: always
   - name: COOKIE_INSECURE
     value: 'false'
   # gateway serves /livez and /readyz on its one HTTP port.

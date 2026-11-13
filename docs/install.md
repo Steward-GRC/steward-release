@@ -301,15 +301,26 @@ Each app's origin must also be in the gateway's allowed origins (its `ALLOWED_OR
 
 ### Second-factor enforcement at the public edge
 
-gateway's `MFA_ENFORCE` (a value in `values.yaml`, default `edge`, matching gateway's own
-default) asks a signed-in user for a second factor only when the sign-in carries the header the
-public edge is supposed to set (`X-Steward-Edge: public`), which the web apps forward to gateway
-when it's present on the incoming request. Each app's `ingress.edgeHeader` (default `true` when
-that app's Ingress is enabled) sets that header through an ingress-nginx
-`configuration-snippet` annotation; a cluster running a different ingress controller needs its
-own equivalent annotation in that app's `ingress.annotations` instead, with `edgeHeader: false` so
-the two don't collide. Set `gateway.env`'s `MFA_ENFORCE` entry to `always` or `never` to change the
-enforcement itself.
+gateway's `MFA_ENFORCE` (a `gateway.env` value) decides when a signed-in user is asked for a
+second factor. The chart defaults it to `always`: every sign-in is asked, and nothing is needed
+from the ingress controller, so the chart installs on a stock ingress-nginx. gateway's own
+default is `edge`, which asks only when the request carries the header the public edge sets
+(`X-Steward-Edge: public`, forwarded by the web apps); with no header set it never asks, so
+choose `edge` only once one of these two is in place, and set `MFA_ENFORCE` to `edge` yourself.
+
+1. Controller ConfigMap (no snippet annotations). In the ingress-nginx ConfigMap, set
+   `proxy-set-headers` to a ConfigMap holding `X-Steward-Edge: "public"`. It marks every request
+   that controller forwards, for every Ingress, so use it only on a controller that serves
+   public traffic alone. The chart does not write to the controller's namespace.
+2. Snippet annotation. Set the app's `ingress.edgeHeader: true` (default `false`); it adds an
+   ingress-nginx `configuration-snippet` annotation on that app's Ingress. A stock ingress-nginx
+   rejects it at admission and the install fails, so the controller needs
+   `allow-snippet-annotations: "true"` (a cluster-wide controller change, and it lets any
+   Ingress author inject nginx configuration).
+
+A cluster running a different ingress controller sets its own equivalent in that app's
+`ingress.annotations` and leaves `edgeHeader` at `false`. Set `MFA_ENFORCE` to `never` only to
+turn the enforcement off.
 
 gateway's `COOKIE_INSECURE` (also a `gateway.env` value, default `false`) drops the session
 cookie's Secure flag. Local and kind installs only, for a gateway reached over plain HTTP; never
