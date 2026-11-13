@@ -129,3 +129,176 @@ tests:
       - notContains: *noDisabled
       - notContains: {path: "spec.template.spec.containers[0].env", content: {name: WORKLOAD_OIDC_ISSUER}, any: true}
       - notContains: {path: "spec.template.spec.containers[0].env", content: {name: WORKLOAD_TOKEN_FILE}, any: true}
+
+  # global.serviceAccountIssuer feeds every callee; a per-service value wins.
+  - it: global.serviceAccountIssuer reaches (identity)
+    template: charts/identity/templates/deployment.yaml
+    set:
+      global.serviceAccountIssuer: https://kubernetes.default.svc
+    asserts:
+      - contains: {path: "spec.template.spec.containers[0].env", content: {name: WORKLOAD_OIDC_ISSUER, value: "https://kubernetes.default.svc"}}
+  - it: global.serviceAccountIssuer reaches (workflow)
+    template: charts/workflow/templates/deployment.yaml
+    set:
+      global.serviceAccountIssuer: https://kubernetes.default.svc
+    asserts:
+      - contains: {path: "spec.template.spec.containers[0].env", content: {name: WORKLOAD_OIDC_ISSUER, value: "https://kubernetes.default.svc"}}
+  - it: global.serviceAccountIssuer reaches (obligations)
+    template: charts/obligations/templates/deployment.yaml
+    set:
+      global.serviceAccountIssuer: https://kubernetes.default.svc
+    asserts:
+      - contains: {path: "spec.template.spec.containers[0].env", content: {name: WORKLOAD_OIDC_ISSUER, value: "https://kubernetes.default.svc"}}
+  - it: global.serviceAccountIssuer reaches (audit)
+    template: charts/audit/templates/deployment.yaml
+    set:
+      global.serviceAccountIssuer: https://kubernetes.default.svc
+    asserts:
+      - contains: {path: "spec.template.spec.containers[0].env", content: {name: WORKLOAD_OIDC_ISSUER, value: "https://kubernetes.default.svc"}}
+  - it: global.serviceAccountIssuer reaches (core)
+    template: charts/core/templates/deployment.yaml
+    set:
+      global.serviceAccountIssuer: https://kubernetes.default.svc
+    asserts:
+      - contains: {path: "spec.template.spec.containers[0].env", content: {name: WORKLOAD_OIDC_ISSUER, value: "https://kubernetes.default.svc"}}
+  - it: global.serviceAccountIssuer reaches (delivery)
+    template: charts/delivery/templates/deployment.yaml
+    set:
+      global.serviceAccountIssuer: https://kubernetes.default.svc
+    asserts:
+      - contains: {path: "spec.template.spec.containers[0].env", content: {name: WORKLOAD_OIDC_ISSUER, value: "https://kubernetes.default.svc"}}
+  - it: global.serviceAccountIssuer reaches (reporting)
+    template: charts/reporting/templates/deployment.yaml
+    set:
+      global.serviceAccountIssuer: https://kubernetes.default.svc
+    asserts:
+      - contains: {path: "spec.template.spec.containers[0].env", content: {name: WORKLOAD_OIDC_ISSUER, value: "https://kubernetes.default.svc"}}
+  - it: global.serviceAccountIssuer reaches (collab)
+    template: charts/collab/templates/deployment.yaml
+    set:
+      global.serviceAccountIssuer: https://kubernetes.default.svc
+    asserts:
+      - contains: {path: "spec.template.spec.containers[0].env", content: {name: WORKLOAD_OIDC_ISSUER, value: "https://kubernetes.default.svc"}}
+  - it: global.serviceAccountIssuer reaches (ai)
+    template: charts/ai/templates/deployment.yaml
+    set:
+      global.serviceAccountIssuer: https://kubernetes.default.svc
+    asserts:
+      - contains: {path: "spec.template.spec.containers[0].env", content: {name: WORKLOAD_OIDC_ISSUER, value: "https://kubernetes.default.svc"}}
+  - it: the service's own issuer wins over the global for (identity)
+    template: charts/identity/templates/deployment.yaml
+    set:
+      global.serviceAccountIssuer: https://kubernetes.default.svc
+      identity.workloadAuth.oidc.issuer: https://issuer.example.org
+    asserts:
+      - contains: {path: "spec.template.spec.containers[0].env", content: {name: WORKLOAD_OIDC_ISSUER, value: "https://issuer.example.org"}}
+  - it: the service's own issuer wins over the global for (workflow)
+    template: charts/workflow/templates/deployment.yaml
+    set:
+      global.serviceAccountIssuer: https://kubernetes.default.svc
+      workflow.workloadAuth.oidc.issuer: https://issuer.example.org
+    asserts:
+      - contains: {path: "spec.template.spec.containers[0].env", content: {name: WORKLOAD_OIDC_ISSUER, value: "https://issuer.example.org"}}
+  - it: the service's own issuer wins over the global for (obligations)
+    template: charts/obligations/templates/deployment.yaml
+    set:
+      global.serviceAccountIssuer: https://kubernetes.default.svc
+      obligations.workloadAuth.oidc.issuer: https://issuer.example.org
+    asserts:
+      - contains: {path: "spec.template.spec.containers[0].env", content: {name: WORKLOAD_OIDC_ISSUER, value: "https://issuer.example.org"}}
+  - it: the service's own issuer wins over the global for (audit)
+    template: charts/audit/templates/deployment.yaml
+    set:
+      global.serviceAccountIssuer: https://kubernetes.default.svc
+      audit.workloadAuth.oidc.issuer: https://issuer.example.org
+    asserts:
+      - contains: {path: "spec.template.spec.containers[0].env", content: {name: WORKLOAD_OIDC_ISSUER, value: "https://issuer.example.org"}}
+  - it: the service's own issuer wins over the global for (core)
+    template: charts/core/templates/deployment.yaml
+    set:
+      global.serviceAccountIssuer: https://kubernetes.default.svc
+      core.workloadAuth.oidc.issuer: https://issuer.example.org
+    asserts:
+      - contains: {path: "spec.template.spec.containers[0].env", content: {name: WORKLOAD_OIDC_ISSUER, value: "https://issuer.example.org"}}
+  - it: the service's own issuer wins over the global for (delivery)
+    template: charts/delivery/templates/deployment.yaml
+    set:
+      global.serviceAccountIssuer: https://kubernetes.default.svc
+      delivery.workloadAuth.oidc.issuer: https://issuer.example.org
+    asserts:
+      - contains: {path: "spec.template.spec.containers[0].env", content: {name: WORKLOAD_OIDC_ISSUER, value: "https://issuer.example.org"}}
+  - it: the service's own issuer wins over the global for (reporting)
+    template: charts/reporting/templates/deployment.yaml
+    set:
+      global.serviceAccountIssuer: https://kubernetes.default.svc
+      reporting.workloadAuth.oidc.issuer: https://issuer.example.org
+    asserts:
+      - contains: {path: "spec.template.spec.containers[0].env", content: {name: WORKLOAD_OIDC_ISSUER, value: "https://issuer.example.org"}}
+  - it: the service's own issuer wins over the global for (collab)
+    template: charts/collab/templates/deployment.yaml
+    set:
+      global.serviceAccountIssuer: https://kubernetes.default.svc
+      collab.workloadAuth.oidc.issuer: https://issuer.example.org
+    asserts:
+      - contains: {path: "spec.template.spec.containers[0].env", content: {name: WORKLOAD_OIDC_ISSUER, value: "https://issuer.example.org"}}
+  - it: the service's own issuer wins over the global for (ai)
+    template: charts/ai/templates/deployment.yaml
+    set:
+      global.serviceAccountIssuer: https://kubernetes.default.svc
+      ai.workloadAuth.oidc.issuer: https://issuer.example.org
+    asserts:
+      - contains: {path: "spec.template.spec.containers[0].env", content: {name: WORKLOAD_OIDC_ISSUER, value: "https://issuer.example.org"}}
+  - it: the default issuer is unchanged for (identity)
+    template: charts/identity/templates/deployment.yaml
+    set:
+      crds.install: false
+    asserts:
+      - contains: {path: "spec.template.spec.containers[0].env", content: {name: WORKLOAD_OIDC_ISSUER, value: "https://kubernetes.default.svc.cluster.local"}}
+  - it: the default issuer is unchanged for (workflow)
+    template: charts/workflow/templates/deployment.yaml
+    set:
+      crds.install: false
+    asserts:
+      - contains: {path: "spec.template.spec.containers[0].env", content: {name: WORKLOAD_OIDC_ISSUER, value: "https://kubernetes.default.svc.cluster.local"}}
+  - it: the default issuer is unchanged for (obligations)
+    template: charts/obligations/templates/deployment.yaml
+    set:
+      crds.install: false
+    asserts:
+      - contains: {path: "spec.template.spec.containers[0].env", content: {name: WORKLOAD_OIDC_ISSUER, value: "https://kubernetes.default.svc.cluster.local"}}
+  - it: the default issuer is unchanged for (audit)
+    template: charts/audit/templates/deployment.yaml
+    set:
+      crds.install: false
+    asserts:
+      - contains: {path: "spec.template.spec.containers[0].env", content: {name: WORKLOAD_OIDC_ISSUER, value: "https://kubernetes.default.svc.cluster.local"}}
+  - it: the default issuer is unchanged for (core)
+    template: charts/core/templates/deployment.yaml
+    set:
+      crds.install: false
+    asserts:
+      - contains: {path: "spec.template.spec.containers[0].env", content: {name: WORKLOAD_OIDC_ISSUER, value: "https://kubernetes.default.svc.cluster.local"}}
+  - it: the default issuer is unchanged for (delivery)
+    template: charts/delivery/templates/deployment.yaml
+    set:
+      crds.install: false
+    asserts:
+      - contains: {path: "spec.template.spec.containers[0].env", content: {name: WORKLOAD_OIDC_ISSUER, value: "https://kubernetes.default.svc.cluster.local"}}
+  - it: the default issuer is unchanged for (reporting)
+    template: charts/reporting/templates/deployment.yaml
+    set:
+      crds.install: false
+    asserts:
+      - contains: {path: "spec.template.spec.containers[0].env", content: {name: WORKLOAD_OIDC_ISSUER, value: "https://kubernetes.default.svc.cluster.local"}}
+  - it: the default issuer is unchanged for (collab)
+    template: charts/collab/templates/deployment.yaml
+    set:
+      crds.install: false
+    asserts:
+      - contains: {path: "spec.template.spec.containers[0].env", content: {name: WORKLOAD_OIDC_ISSUER, value: "https://kubernetes.default.svc.cluster.local"}}
+  - it: the default issuer is unchanged for (ai)
+    template: charts/ai/templates/deployment.yaml
+    set:
+      crds.install: false
+    asserts:
+      - contains: {path: "spec.template.spec.containers[0].env", content: {name: WORKLOAD_OIDC_ISSUER, value: "https://kubernetes.default.svc.cluster.local"}}

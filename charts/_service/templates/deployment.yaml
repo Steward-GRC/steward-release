@@ -120,7 +120,7 @@ spec:
             - name: WORKLOAD_AUDIENCE
               value: {{ .Values.workloadAuth.audience | quote }}
             - name: WORKLOAD_OIDC_ISSUER
-              value: {{ required "workloadAuth.oidc.issuer is required when workloadAuth.callee is true" .Values.workloadAuth.oidc.issuer | quote }}
+              value: {{ include "service-chart.oidcIssuer" . | quote }}
             - name: WORKLOAD_OIDC_JWKS_URL
               value: {{ required "workloadAuth.oidc.jwksUrl is required when workloadAuth.callee is true" .Values.workloadAuth.oidc.jwksUrl | quote }}
             - name: WORKLOAD_OIDC_CA_FILE

@@ -187,9 +187,12 @@ workloadAuth:
   oidc:
     # Defaults assume the cluster's own API server is the OIDC issuer
     # (the Kubernetes built-in service-account issuer discovery most
-    # clusters already run). Override for a cluster with a different
+    # clusters already run). Leave `issuer` empty to take
+    # global.serviceAccountIssuer (set once on the umbrella), which falls
+    # back to https://kubernetes.default.svc.cluster.local. A value here
+    # wins over the global, for one service on a cluster with a different
     # --service-account-issuer.
-    issuer: https://kubernetes.default.svc.cluster.local
+    issuer: ""
     jwksUrl: https://kubernetes.default.svc.cluster.local/openid/v1/jwks
     # The JWKS fetch credentials the chart mounts for every enabled callee:
     # the namespace's kube-root-ca.crt ConfigMap (the API server's CA), and

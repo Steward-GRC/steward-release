@@ -23,6 +23,11 @@ identityPolisSecrets:
   name: steward-identity-polis-secrets
 
 global:
+  # The `iss` claim of the cluster's service-account tokens, which every
+  # callee checks. This is kind's value; k0s and k3s differ (read yours with
+  # `kubectl get --raw /.well-known/openid-configuration`, see docs/install.md).
+  # A per-service `<alias>.workloadAuth.oidc.issuer` still wins.
+  serviceAccountIssuer: https://kubernetes.default.svc.cluster.local
   # The OTLP collector (host:port) every service exports traces to. Empty
   # (the default) turns tracing off. Set `<alias>.otlpEndpoint` for one
   # service instead.
