@@ -398,8 +398,8 @@ kill %1
 ```
 
 `/setup/state` then answers `{"needsSetup":false}`. After that, sign in through a web app with the
-email and password. Sign-in with `MFA_ENFORCE=always` (the default) asks for a second factor, so
-set up the root account's factor first or use `edge` or `never` for a test install (see
+email and password. With `MFA_ENFORCE=always` (the default) that sign-in asks for a second factor;
+a test install that cannot use one sets `edge` or `never` (see
 [Second-factor enforcement](#second-factor-enforcement-at-the-public-edge)).
 
 ## Service addresses
