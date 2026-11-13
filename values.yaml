@@ -695,6 +695,12 @@ web-staff:
   podSecurityContext:
     runAsUser: 1001
     runAsGroup: 1001
+  # steward-web's server reads X-Forwarded-Proto and X-Forwarded-Host only with
+  # TRUST_PROXY=true. Behind a TLS-terminating ingress the request URL otherwise
+  # comes out http:// and every sign-in form POST fails the same-origin check (400).
+  baseEnv:
+  - name: TRUST_PROXY
+    value: 'true'
   calls:
   - {service: gateway, env: GATEWAY_URL, scheme: http, path: /query}
   ingress:
@@ -722,6 +728,12 @@ web-admin:
   podSecurityContext:
     runAsUser: 1001
     runAsGroup: 1001
+  # steward-web's server reads X-Forwarded-Proto and X-Forwarded-Host only with
+  # TRUST_PROXY=true. Behind a TLS-terminating ingress the request URL otherwise
+  # comes out http:// and every sign-in form POST fails the same-origin check (400).
+  baseEnv:
+  - name: TRUST_PROXY
+    value: 'true'
   calls:
   - {service: gateway, env: GATEWAY_URL, scheme: http, path: /query}
   ingress:

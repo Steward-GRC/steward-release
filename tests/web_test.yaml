@@ -54,3 +54,19 @@ tests:
       - equal: {path: "spec.rules[0].host", value: steward.example.org}
       - equal: {path: "spec.rules[0].http.paths[0].path", value: /admin}
       - equal: {path: "spec.rules[0].http.paths[0].backend.service.name", value: steward-web-admin}
+  - it: trusts the ingress's forwarded scheme and host on both apps
+    template: charts/web-staff/templates/deployment.yaml
+    asserts: &trustproxy
+      - contains: {path: "spec.template.spec.containers[0].env", content: {name: TRUST_PROXY, value: "true"}}
+  - it: trusts the forwarded scheme and host on the admin app too
+    template: charts/web-admin/templates/deployment.yaml
+    asserts: *trustproxy
+  - it: keeps TRUST_PROXY when the operator adds their own env
+    template: charts/web-staff/templates/deployment.yaml
+    set:
+      web-staff:
+        env:
+          - {name: ALLOWED_ACTION_ORIGINS, value: steward.example.org}
+    asserts:
+      - contains: {path: "spec.template.spec.containers[0].env", content: {name: TRUST_PROXY, value: "true"}}
+      - contains: {path: "spec.template.spec.containers[0].env", content: {name: ALLOWED_ACTION_ORIGINS, value: steward.example.org}}
