@@ -1,0 +1,31 @@
+name: pins
+# Called by checks.yml as the `pins` job. Keeps ci/kind/images.txt from
+# drifting behind the services' main, which the kind install test builds from.
+#
+# - Pull requests: run the script's own self-test (local git repos, no
+#   network) so a change to the checker cannot silently stop catching drift.
+#   Drift itself does not fail a pull request: a service merging to main would
+#   otherwise block every unrelated PR here.
+# - Schedule and manual runs: fail when any pin is behind its repo's main. The
+#   fix is a PR from `ci/kind/check-pins.sh --update` (README, "Bumping the
+#   pins").
+on:
+  workflow_call:
+permissions:
+  contents: read
+jobs:
+  pins:
+    name: Kind image pins
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Self-test the pin checker
+        if: github.event_name == 'pull_request' || github.event_name == 'merge_group'
+        run: ci/kind/check-pins_test.sh
+      - name: Fail when a pin is behind main
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+        run: ci/kind/check-pins.sh

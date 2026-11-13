@@ -42,6 +42,13 @@ jobs:
     permissions:
       contents: read
     uses: ./.github/workflows/job-kind.yaml
+  # Self-tests the pin checker on pull requests; on the weekday schedule (and
+  # a manual run) fails when ci/kind/images.txt is behind the services' main.
+  pins:
+    if: github.event_name != 'push' && github.event.pull_request.draft != true
+    permissions:
+      contents: read
+    uses: ./.github/workflows/job-pins.yaml
   dco:
     if: (github.event_name == 'pull_request' || github.event_name == 'merge_group') && github.event.pull_request.draft != true
     uses: Steward-GRC/.github/.github/workflows/dco.yml@main
