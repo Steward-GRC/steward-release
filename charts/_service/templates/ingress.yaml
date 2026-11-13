@@ -9,11 +9,12 @@ empty). TLS Secrets are the operator's, by name.
 {{- fail (printf "%s: ingress.enabled needs at least one ingress.hosts entry" (include "service-chart.fullname" .)) }}
 {{- end }}
 {{- /*
-edgeHeader marks every request this Ingress forwards with X-Steward-Edge:
-public, the header gateway's MFA_ENFORCE=edge (its own default) needs to ask
-a signed-in user for a second factor. Assumes an ingress-nginx controller; an
-operator's own annotation of the same name always wins, and edgeHeader: false
-turns this off for a different controller's own equivalent.
+edgeHeader (off by default) marks every request this Ingress forwards with
+X-Steward-Edge: public, the header gateway's MFA_ENFORCE=edge needs to ask a
+signed-in user for a second factor. It works through an ingress-nginx
+configuration-snippet annotation, which a stock ingress-nginx rejects at
+admission, so it stays off unless the operator's controller allows snippets.
+An operator's own annotation of the same name always wins.
 */}}
 {{- $autoAnnotations := dict }}
 {{- if .Values.ingress.edgeHeader }}
