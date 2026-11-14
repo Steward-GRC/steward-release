@@ -56,6 +56,8 @@ jobs:
             || { echo "PR body must reference an issue (e.g. 'Closes #12' or 'Refs owner/repo#12')."; fail=1; }
           printf '%s' "$BODY" | grep -qiE '##[[:space:]]*what' \
             || { echo "PR body must follow the template (a 'What and why' section)."; fail=1; }
+          printf '%s' "$BODY" | grep -qiE '^##[[:space:]]*change record' \
+            || { echo "PR body must include a 'Change record' section (what changes, why, evidence, how to roll back)."; fail=1; }
           [ "$fail" -eq 0 ] || exit 1
 
       - name: Checkout
