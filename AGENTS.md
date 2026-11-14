@@ -60,8 +60,11 @@ Follow the logging rules in `CLAUDE.md`. In short:
   `.claude/hooks` (run `bash .claude/hooks/install.sh` once per clone).
 - Open every PR as a draft. CI skips drafts, so run the full checks locally, push once they pass,
   and mark the PR ready when the work is finished; see CLAUDE.md "CI and Actions minutes".
-- A merge into this repo's `main` needs the release-review group's approval on top of green CI;
-  merge-on-green alone does not apply to this repo.
+- A merge into this repo's `main` needs one approval from the `release-review` team on top of green
+  CI, and the PR body carries a "Change record" section (what changes, why, evidence, how to roll
+  back). Every PR here has the same author, so the merge uses the repository Admin bypass
+  (`gh pr merge <n> --squash --admin`), and only after the owner's Yes. Merge-on-green alone does
+  not apply to this repo.
 - `Bugs5382/helm-postgres-ha` has no published release yet (draft-only `v0.0.1`, no OCI chart
   published). `helm dependency build` fails here until the maintainer publishes it; that's a known,
   reported gap, not a bug in this repo.
