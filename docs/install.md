@@ -423,7 +423,7 @@ collector's `host:port`, or `<service>.otlpEndpoint` for one service (it wins ov
 
 ## Access decisions
 
-`core` and `gateway` decide access in-process with the steward-authz Go module, built into each
+`core` and `gateway` decide access in-process with the go-authz Go module, built into each
 image, and `ai` applies the same read rules in its own queries. The chart mounts no policy bundle
 and needs no bundle image.
 

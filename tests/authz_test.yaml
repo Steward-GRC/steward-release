@@ -4,7 +4,7 @@ templates:
   - charts/ai/templates/deployment.yaml
   - charts/gateway/templates/deployment.yaml
 tests:
-  # core and the gateway decide access with the steward-authz Go module built
+  # core and the gateway decide access with the go-authz Go module built
   # into each image, and ai in its own queries; the chart mounts no bundle.
   - it: gives core no policy-bundle init container, volume or setting
     template: charts/core/templates/deployment.yaml
